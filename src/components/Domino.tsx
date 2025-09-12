@@ -62,9 +62,9 @@ const DominoComponent: React.FC<DominoProps> = ({
     >
       <div className="relative">
         {faceDown ? (
-          <div className="domino-back w-20 h-40 bg-gradient-to-br from-red-900 to-red-700 rounded-lg border-4 border-red-800 shadow-lg flex items-center justify-center">
-            <div className="w-12 h-32 bg-gradient-to-b from-red-800 to-red-600 rounded border border-red-700 flex items-center justify-center">
-              <div className="text-red-300 text-xs font-bold opacity-30">DOMINO</div>
+          <div className="domino-back w-20 h-40 bg-gradient-to-br from-slate-800 to-slate-600 rounded-lg border-4 border-slate-500 shadow-lg flex items-center justify-center">
+            <div className="w-12 h-32 bg-gradient-to-b from-slate-700 to-slate-500 rounded border border-slate-400 flex items-center justify-center">
+              <div className="text-slate-300 text-xs font-bold opacity-30">NINJA</div>
             </div>
           </div>
         ) : (

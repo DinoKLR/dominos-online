@@ -4,11 +4,20 @@ import React, { useState } from 'react'
 import { Gamepad2, Users, Trophy, Settings } from 'lucide-react'
 import DominoWashing from '@/components/DominoWashing'
 import DominoComponent from '@/components/Domino'
+import DominoGame from '@/components/DominoGame'
 import { createDominoSet } from '@/types/domino'
 
 export default function Home() {
-  const [gameMode, setGameMode] = useState<'lobby' | 'demo' | 'washing'>('lobby')
-  const sampleDominoes = createDominoSet().slice(0, 7)
+  const [gameMode, setGameMode] = useState<'lobby' | 'demo' | 'washing' | 'game'>('lobby')
+  const sampleDominoes = [
+    { id: '6-6', left: 6, right: 6, isDouble: true },
+    { id: '5-5', left: 5, right: 5, isDouble: true },
+    { id: '4-4', left: 4, right: 4, isDouble: true },
+    { id: '3-3', left: 3, right: 3, isDouble: true },
+    { id: '2-2', left: 2, right: 2, isDouble: true },
+    { id: '1-1', left: 1, right: 1, isDouble: true },
+    { id: '0-0', left: 0, right: 0, isDouble: true }
+  ]
 
   if (gameMode === 'demo') {
     return (
@@ -57,6 +66,17 @@ export default function Home() {
     )
   }
 
+  if (gameMode === 'game') {
+    return (
+      <DominoGame
+        onGameEnd={(winner) => {
+          console.log('Game ended, winner:', winner)
+          setTimeout(() => setGameMode('lobby'), 3000)
+        }}
+      />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700">
       {/* Header */}
@@ -65,7 +85,29 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="bg-gradient-to-r from-green-400 to-cyan-500 p-3 rounded-xl shadow-lg shadow-green-500/50">
-                <Gamepad2 className="w-8 h-8 text-black" />
+                <div className="w-8 h-8 text-black flex items-center justify-center">
+                  <svg viewBox="0 0 60 120" className="w-6 h-12">
+                    {/* Vertical domino background */}
+                    <rect x="5" y="5" width="50" height="110" fill="white" stroke="black" strokeWidth="3" rx="8"/>
+                    
+                    {/* Top half - 5 dots */}
+                    <circle cx="18" cy="20" r="3" fill="black"/>
+                    <circle cx="42" cy="20" r="3" fill="black"/>
+                    <circle cx="30" cy="30" r="3" fill="black"/>
+                    <circle cx="18" cy="40" r="3" fill="black"/>
+                    <circle cx="42" cy="40" r="3" fill="black"/>
+                    
+                    {/* Center dividing line */}
+                    <line x1="5" y1="60" x2="55" y2="60" stroke="black" strokeWidth="2"/>
+                    
+                    {/* Bottom half - 5 dots */}
+                    <circle cx="18" cy="75" r="3" fill="black"/>
+                    <circle cx="42" cy="75" r="3" fill="black"/>
+                    <circle cx="30" cy="85" r="3" fill="black"/>
+                    <circle cx="18" cy="95" r="3" fill="black"/>
+                    <circle cx="42" cy="95" r="3" fill="black"/>
+                  </svg>
+                </div>
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-cyan-400">NINJA BONES</h1>
@@ -89,7 +131,7 @@ export default function Home() {
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h2 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-cyan-400 to-green-400 mb-6">
-            ENTER THE DOJO - SLING BONES LIKE A NINJA
+            ENTER THE DOJO - SLANG BONES LIKE A NINJA
           </h2>
           <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
             Step into the arena where only the strongest bone slayers survive! 
@@ -104,6 +146,12 @@ export default function Home() {
               className="bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-400 hover:to-cyan-400 text-black px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/50 border border-green-400"
             >
               View Ninja Bones
+            </button>
+            <button
+              onClick={() => setGameMode('game')}
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-black px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-purple-500/50 border border-purple-400"
+            >
+              🥷 Fight Computer Ninja
             </button>
             <button
               onClick={() => setGameMode('washing')}
@@ -170,7 +218,7 @@ export default function Home() {
       <footer className="border-t border-slate-600 bg-slate-900/50 backdrop-blur-sm py-8">
         <div className="max-w-6xl mx-auto px-6 text-center">
           <p className="text-green-400 font-semibold">
-            Forged by ninjas for authentic bone-slaying combat. No rigged hands, no bots, just pure dojo warfare! 🥷🎲
+            Forged by ninjas for authentic bone-slaying combat. No rigged hands, no bots, just pure dojo warfare! 🥷⚁
           </p>
         </div>
       </footer>
