@@ -38,8 +38,8 @@ const DominoComponent: React.FC<DominoProps> = ({
         key={i}
         cx={pos.x}
         cy={pos.y}
-        r="6"
-        fill="#2c3e50"
+        r="7"
+        fill="#000000"
         className="domino-dot"
       />
     ))
@@ -68,9 +68,9 @@ const DominoComponent: React.FC<DominoProps> = ({
             </div>
           </div>
         ) : (
-          <div className="domino-face w-20 h-40 bg-gradient-to-br from-ivory to-white rounded-lg border-4 border-gray-400 shadow-lg relative overflow-hidden">
+          <div className="domino-face w-20 h-40 bg-white rounded-lg border-2 border-gray-600 shadow-lg relative overflow-hidden">
             {/* Top half */}
-            <div className="relative w-full h-20 flex items-center justify-center border-b-2 border-gray-400">
+            <div className="relative w-full h-20 flex items-center justify-center border-b-2 border-gray-600">
               <svg width="100%" height="100%" viewBox="0 0 100 100" className="absolute">
                 {renderDots(domino.left, 'left')}
               </svg>
@@ -82,9 +82,6 @@ const DominoComponent: React.FC<DominoProps> = ({
                 {renderDots(domino.right, 'right')}
               </svg>
             </div>
-            
-            {/* Subtle texture overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/20 to-transparent pointer-events-none rounded-lg"></div>
           </div>
         )}
       </div>

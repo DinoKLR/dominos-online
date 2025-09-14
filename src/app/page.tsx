@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Gamepad2, Users, Trophy, Settings } from 'lucide-react'
 import DominoWashing from '@/components/DominoWashing'
 import DominoComponent from '@/components/Domino'
-import DominoGame from '@/components/DominoGame'
+import DominoGameMobile from '@/components/DominoGameMobile'
 import { createDominoSet } from '@/types/domino'
 
 export default function Home() {
@@ -68,11 +68,12 @@ export default function Home() {
 
   if (gameMode === 'game') {
     return (
-      <DominoGame
+      <DominoGameMobile
         onGameEnd={(winner) => {
           console.log('Game ended, winner:', winner)
           setTimeout(() => setGameMode('lobby'), 3000)
         }}
+        onBackToHome={() => setGameMode('lobby')}
       />
     )
   }
