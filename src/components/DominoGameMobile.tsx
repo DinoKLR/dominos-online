@@ -179,9 +179,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       board: [{
         ...startingDomino,
         x: 50,
-        y: 'calc(50% - 4.4rem)',
-        rotation: startingDomino.isDouble ? 0 : 90,
-        usePercentage: true
+        y: 50,
+        rotation: startingDomino.isDouble ? 0 : 90
       }],
       currentPlayer: starter === 'player' ? 'computer' : 'player',
       gamePhase: 'playing',
@@ -194,7 +193,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       firstSpinner: startingDomino.isDouble ? {
         domino: startingDomino,
         horizontalPlayed: false,
-        position: { x: 50, y: 'calc(50% - 4.4rem)' }
+        position: { x: 50, y: 50 }
       } : null,
       openEnds: {
         left: startingDomino.left,
