@@ -115,9 +115,26 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
     setMessage(starter === 'player' ? "Computer's turn" : 'Your turn')
   }
 
-  const canPlay = (domino: Domino): 'left' | 'right' | 'both' | null => {
+  const canPlay = (domino: Domino): 'left' | 'right' | 'both' | 'spinner' | null => {
     const matchesLeft = domino.left === leftEnd || domino.right === leftEnd
     const matchesRight = domino.left === rightEnd || domino.right === rightEnd
+
+    // Check if we can play on the spinner (first double)
+    if (firstSpinner && spinnerSides.size >= 2 && spinnerSides.size < 4) {
+      const spinnerValue = firstSpinner.domino.left // doubles have same value on both sides
+      const matchesSpinner = domino.left === spinnerValue || domino.right === spinnerValue
+
+      if (matchesSpinner) {
+        // If it ONLY matches spinner, not the ends
+        if (!matchesLeft && !matchesRight) {
+          return 'spinner'
+        }
+        // If it matches both spinner and an end
+        if (matchesLeft || matchesRight) {
+          return 'spinner'
+        }
+      }
+    }
 
     if (matchesLeft && matchesRight) return 'both'
     if (matchesLeft) return 'left'
@@ -125,17 +142,49 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
     return null
   }
 
-  const playDomino = (domino: Domino, side: 'left' | 'right') => {
+  const playDomino = (domino: Domino, side: 'left' | 'right' | 'up' | 'down') => {
     let placedDomino = { ...domino }
 
     // Debug logging
     console.log(`Playing ${domino.left}-${domino.right} on ${side} side`)
     console.log(`Current ends: Left=${leftEnd}, Right=${rightEnd}`)
 
-    // FIX THE ORIENTATION - The logic was backwards!
-    // When we place on the LEFT, we want the RIGHT side of the domino to connect
-    // When we place on the RIGHT, we want the LEFT side of the domino to connect
+    // Handle spinner placement (up/down)
+    if ((side === 'up' || side === 'down') && firstSpinner) {
+      const spinnerValue = firstSpinner.domino.left
+      // Orient domino correctly for vertical placement
+      if (domino.left === spinnerValue) {
+        placedDomino.isFlipped = false
+      } else {
+        placedDomino.isFlipped = true
+      }
 
+      // Track which side of spinner was played
+      setSpinnerSides(new Set([...spinnerSides, side]))
+
+      // Calculate position
+      let x = firstSpinner.x
+      let y = firstSpinner.y
+
+      if (side === 'up') {
+        y = firstSpinner.y - 120 // Place above
+      } else {
+        y = firstSpinner.y + 120 // Place below
+      }
+
+      const newPlaced: PlacedDomino = {
+        domino: placedDomino,
+        x: x,
+        y: y,
+        rotation: 0, // Vertical orientation for up/down
+        spinnerSide: side
+      }
+
+      setBoard([...board, newPlaced])
+      return
+    }
+
+    // Original left/right logic
     if (side === 'left') {
       // Placing on left - the RIGHT end of new domino should match leftEnd
       if (domino.right === leftEnd) {
@@ -208,10 +257,21 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
       domino: placedDomino,
       x: x,
       y: y,
-      rotation: placedDomino.isDouble ? 0 : 90
+      rotation: placedDomino.isDouble ? 0 : 90,
+      spinnerSide: side as 'left' | 'right'
     }
 
     setBoard([...board, newPlaced])
+
+    // Track the first double as the spinner
+    if (!firstSpinner && placedDomino.isDouble) {
+      setFirstSpinner(newPlaced)
+      setSpinnerSides(new Set([side]))
+    } else if (firstSpinner && side === 'left' && !spinnerSides.has('left')) {
+      setSpinnerSides(new Set([...spinnerSides, 'left']))
+    } else if (firstSpinner && side === 'right' && !spinnerSides.has('right')) {
+      setSpinnerSides(new Set([...spinnerSides, 'right']))
+    }
   }
 
   const handleDominoClick = (domino: Domino) => {
@@ -223,11 +283,11 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
       return
     }
 
-    // If can play on both sides, show choice buttons
-    if (playable === 'both') {
+    // If can play on multiple sides, show choice buttons
+    if (playable === 'both' || playable === 'spinner') {
       setSelectedDomino(domino)
       setShowSideChoice(true)
-      setMessage(`Choose side for ${domino.left}-${domino.right}`)
+      setMessage(`Choose where to play ${domino.left}-${domino.right}`)
       return
     }
 
@@ -246,7 +306,7 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
     setMessage("Computer's turn")
   }
 
-  const handleSideChoice = (side: 'left' | 'right') => {
+  const handleSideChoice = (side: 'left' | 'right' | 'up' | 'down') => {
     if (!selectedDomino) return
 
     playDomino(selectedDomino, side)
@@ -391,20 +451,47 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
           </button>
 
           {/* Side choice buttons when needed */}
-          {showSideChoice && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleSideChoice('left')}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold"
-              >
-                Play LEFT (← {leftEnd})
-              </button>
-              <button
-                onClick={() => handleSideChoice('right')}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-bold"
-              >
-                Play RIGHT ({rightEnd} →)
-              </button>
+          {showSideChoice && selectedDomino && (
+            <div className="flex gap-2 flex-wrap">
+              {canPlay(selectedDomino) !== 'spinner' && (
+                <>
+                  <button
+                    onClick={() => handleSideChoice('left')}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold"
+                  >
+                    Play LEFT (← {leftEnd})
+                  </button>
+                  <button
+                    onClick={() => handleSideChoice('right')}
+                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-bold"
+                  >
+                    Play RIGHT ({rightEnd} →)
+                  </button>
+                </>
+              )}
+              {/* Show spinner options if available */}
+              {firstSpinner && spinnerSides.size >= 2 && !spinnerSides.has('up') && (
+                selectedDomino.left === firstSpinner.domino.left ||
+                selectedDomino.right === firstSpinner.domino.left
+              ) && (
+                <button
+                  onClick={() => handleSideChoice('up')}
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded font-bold"
+                >
+                  Play UP (↑ {firstSpinner.domino.left})
+                </button>
+              )}
+              {firstSpinner && spinnerSides.size >= 2 && !spinnerSides.has('down') && (
+                selectedDomino.left === firstSpinner.domino.left ||
+                selectedDomino.right === firstSpinner.domino.left
+              ) && (
+                <button
+                  onClick={() => handleSideChoice('down')}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded font-bold"
+                >
+                  Play DOWN (↓ {firstSpinner.domino.left})
+                </button>
+              )}
             </div>
           )}
 
