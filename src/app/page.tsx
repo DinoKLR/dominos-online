@@ -5,9 +5,9 @@ import { Gamepad2, Users, Trophy, Settings } from 'lucide-react'
 import DominoWashing from '@/components/DominoWashing'
 import DominoComponent from '@/components/Domino'
 import DominoGameMobile from '@/components/DominoGameMobile'
-import DominoGameGrid from '@/components/DominoGameGrid'
-import DominoGameGrid2 from '@/components/DominoGameGrid2'
-import DominoGameGrid3 from '@/components/DominoGameGrid3'
+// import DominoGameGrid from '@/components/DominoGameGrid'
+// import DominoGameGrid2 from '@/components/DominoGameGrid2'
+// import DominoGameGrid3 from '@/components/DominoGameGrid3'
 import SimpleDominoGame from '@/components/SimpleDominoGame'
 import SimpleDominoGameFixed from '@/components/SimpleDominoGameFixed'
 import BasicDomino from '@/components/BasicDomino'
@@ -93,41 +93,41 @@ export default function Home() {
     return <TestDomino />
   }
 
-  if (gameMode === 'grid') {
-    return (
-      <DominoGameGrid
-        onGameEnd={(winner) => {
-          console.log('Game ended, winner:', winner)
-          setTimeout(() => setGameMode('lobby'), 3000)
-        }}
-        onBackToHome={() => setGameMode('lobby')}
-      />
-    )
-  }
+  // if (gameMode === 'grid') {
+  //   return (
+  //     <DominoGameGrid
+  //       onGameEnd={(winner) => {
+  //         console.log('Game ended, winner:', winner)
+  //         setTimeout(() => setGameMode('lobby'), 3000)
+  //       }}
+  //       onBackToHome={() => setGameMode('lobby')}
+  //     />
+  //   )
+  // }
 
-  if (gameMode === 'grid2') {
-    return (
-      <DominoGameGrid2
-        onGameEnd={(winner) => {
-          console.log('Game ended, winner:', winner)
-          setTimeout(() => setGameMode('lobby'), 3000)
-        }}
-        onBackToHome={() => setGameMode('lobby')}
-      />
-    )
-  }
+  // if (gameMode === 'grid2') {
+  //   return (
+  //     <DominoGameGrid2
+  //       onGameEnd={(winner) => {
+  //         console.log('Game ended, winner:', winner)
+  //         setTimeout(() => setGameMode('lobby'), 3000)
+  //       }}
+  //       onBackToHome={() => setGameMode('lobby')}
+  //     />
+  //   )
+  // }
 
-  if (gameMode === 'grid3') {
-    return (
-      <DominoGameGrid3
-        onGameEnd={(winner) => {
-          console.log('Game ended, winner:', winner)
-          setTimeout(() => setGameMode('lobby'), 3000)
-        }}
-        onBackToHome={() => setGameMode('lobby')}
-      />
-    )
-  }
+  // if (gameMode === 'grid3') {
+  //   return (
+  //     <DominoGameGrid3
+  //       onGameEnd={(winner) => {
+  //         console.log('Game ended, winner:', winner)
+  //         setTimeout(() => setGameMode('lobby'), 3000)
+  //       }}
+  //       onBackToHome={() => setGameMode('lobby')}
+  //     />
+  //   )
+  // }
 
   if (gameMode === 'simple') {
     return (

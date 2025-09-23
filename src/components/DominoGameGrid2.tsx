@@ -197,7 +197,7 @@ const DominoGameGrid2: React.FC<DominoGameGrid2Props> = ({ onGameEnd, onBackToHo
     const { starter, tile } = findStarter()
 
     // Place starting tile in center
-    placeTileAtCenter(tile, starter)
+    placeTileAtCenter(tile, starter as 'player' | 'computer')
 
     setGameMessage(`${starter === 'player' ? 'You' : 'Computer'} started with ${tile.id}`)
   }
