@@ -13,7 +13,7 @@ const CENTER_COL = 10
 
 // Generate all grid positions
 const generateGridPositions = () => {
-  const positions: { [key: string]: { row: number, col: number, orientation: 'horizontal' | 'vertical' } } = {}
+  const positions: { [key: string]: any } = {}
 
   // Center position (spinner/first domino)
   positions.CENTER = { row: CENTER_ROW, col: CENTER_COL, orientation: 'vertical' }
