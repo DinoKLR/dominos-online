@@ -5,10 +5,21 @@ import { Gamepad2, Users, Trophy, Settings } from 'lucide-react'
 import DominoWashing from '@/components/DominoWashing'
 import DominoComponent from '@/components/Domino'
 import DominoGameMobile from '@/components/DominoGameMobile'
+import DominoGameGrid from '@/components/DominoGameGrid'
+import DominoGameGrid2 from '@/components/DominoGameGrid2'
+import DominoGameGrid3 from '@/components/DominoGameGrid3'
+import SimpleDominoGame from '@/components/SimpleDominoGame'
+import SimpleDominoGameFixed from '@/components/SimpleDominoGameFixed'
+import BasicDomino from '@/components/BasicDomino'
+import WorkingDominoGame from '@/components/WorkingDominoGame'
+import FinalWorkingDomino from '@/components/FinalWorkingDomino'
+import TestDomino from '@/components/TestDomino'
+import CleanDominoGame from '@/components/CleanDominoGame'
+import ProperDominoGame from '@/components/ProperDominoGame'
 import { createDominoSet } from '@/types/domino'
 
 export default function Home() {
-  const [gameMode, setGameMode] = useState<'lobby' | 'demo' | 'washing' | 'game'>('lobby')
+  const [gameMode, setGameMode] = useState<'lobby' | 'demo' | 'washing' | 'game' | 'grid' | 'grid2' | 'grid3' | 'simple' | 'fixed' | 'basic' | 'working' | 'final' | 'test' | 'clean' | 'proper'>('lobby')
   const sampleDominoes = [
     { id: '6-6', left: 6, right: 6, isDouble: true },
     { id: '5-5', left: 5, right: 5, isDouble: true },
@@ -69,6 +80,130 @@ export default function Home() {
   if (gameMode === 'game') {
     return (
       <DominoGameMobile
+        onGameEnd={(winner) => {
+          console.log('Game ended, winner:', winner)
+          setTimeout(() => setGameMode('lobby'), 3000)
+        }}
+        onBackToHome={() => setGameMode('lobby')}
+      />
+    )
+  }
+
+  if (gameMode === 'test') {
+    return <TestDomino />
+  }
+
+  if (gameMode === 'grid') {
+    return (
+      <DominoGameGrid
+        onGameEnd={(winner) => {
+          console.log('Game ended, winner:', winner)
+          setTimeout(() => setGameMode('lobby'), 3000)
+        }}
+        onBackToHome={() => setGameMode('lobby')}
+      />
+    )
+  }
+
+  if (gameMode === 'grid2') {
+    return (
+      <DominoGameGrid2
+        onGameEnd={(winner) => {
+          console.log('Game ended, winner:', winner)
+          setTimeout(() => setGameMode('lobby'), 3000)
+        }}
+        onBackToHome={() => setGameMode('lobby')}
+      />
+    )
+  }
+
+  if (gameMode === 'grid3') {
+    return (
+      <DominoGameGrid3
+        onGameEnd={(winner) => {
+          console.log('Game ended, winner:', winner)
+          setTimeout(() => setGameMode('lobby'), 3000)
+        }}
+        onBackToHome={() => setGameMode('lobby')}
+      />
+    )
+  }
+
+  if (gameMode === 'simple') {
+    return (
+      <SimpleDominoGame
+        onGameEnd={(winner) => {
+          console.log('Game ended, winner:', winner)
+          setTimeout(() => setGameMode('lobby'), 3000)
+        }}
+        onBackToHome={() => setGameMode('lobby')}
+      />
+    )
+  }
+
+  if (gameMode === 'fixed') {
+    return (
+      <SimpleDominoGameFixed
+        onGameEnd={(winner) => {
+          console.log('Game ended, winner:', winner)
+          setTimeout(() => setGameMode('lobby'), 3000)
+        }}
+        onBackToHome={() => setGameMode('lobby')}
+      />
+    )
+  }
+
+  if (gameMode === 'basic') {
+    return (
+      <BasicDomino
+        onGameEnd={(winner) => {
+          console.log('Game ended, winner:', winner)
+          setTimeout(() => setGameMode('lobby'), 3000)
+        }}
+        onBackToHome={() => setGameMode('lobby')}
+      />
+    )
+  }
+
+  if (gameMode === 'working') {
+    return (
+      <WorkingDominoGame
+        onGameEnd={(winner) => {
+          console.log('Game ended, winner:', winner)
+          setTimeout(() => setGameMode('lobby'), 3000)
+        }}
+        onBackToHome={() => setGameMode('lobby')}
+      />
+    )
+  }
+
+  if (gameMode === 'final') {
+    return (
+      <FinalWorkingDomino
+        onGameEnd={(winner) => {
+          console.log('Game ended, winner:', winner)
+          setTimeout(() => setGameMode('lobby'), 3000)
+        }}
+        onBackToHome={() => setGameMode('lobby')}
+      />
+    )
+  }
+
+  if (gameMode === 'clean') {
+    return (
+      <CleanDominoGame
+        onGameEnd={(winner) => {
+          console.log('Game ended, winner:', winner)
+          setTimeout(() => setGameMode('lobby'), 3000)
+        }}
+        onBackToHome={() => setGameMode('lobby')}
+      />
+    )
+  }
+
+  if (gameMode === 'proper') {
+    return (
+      <ProperDominoGame
         onGameEnd={(winner) => {
           console.log('Game ended, winner:', winner)
           setTimeout(() => setGameMode('lobby'), 3000)
@@ -141,12 +276,66 @@ export default function Home() {
             &quot;loser washes&quot; dojo system!
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
             <button
-              onClick={() => setGameMode('demo')}
-              className="bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-400 hover:to-cyan-400 text-black px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/50 border border-green-400"
+              onClick={() => setGameMode('proper')}
+              className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-black px-8 py-3 rounded-xl font-bold text-xl transition-all transform hover:scale-105 shadow-lg shadow-yellow-500/50 border-4 border-yellow-300 col-span-2"
             >
-              View Ninja Bones
+              ⭐ BEST - PROPER VERSION ⭐
+            </button>
+            <button
+              onClick={() => setGameMode('clean')}
+              className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-amber-500/50 border border-amber-400"
+            >
+              🆕 CLEAN VERSION
+            </button>
+            <button
+              onClick={() => setGameMode('final')}
+              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/50 border border-green-400"
+            >
+              🎯 FINAL VERSION
+            </button>
+            <button
+              onClick={() => setGameMode('working')}
+              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-red-500/50 border border-red-400"
+            >
+              ✅ WORKING GAME
+            </button>
+            <button
+              onClick={() => setGameMode('basic')}
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-purple-500/50 border border-purple-400"
+            >
+              🎲 BASIC LINE (SIMPLE)
+            </button>
+            <button
+              onClick={() => setGameMode('fixed')}
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-blue-500/50 border border-blue-400"
+            >
+              ✨ FIXED GAME (WORKS!)
+            </button>
+            <button
+              onClick={() => setGameMode('simple')}
+              className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-emerald-500/50 border border-emerald-400"
+            >
+              🎯 SIMPLE GAME (NEW)
+            </button>
+            <button
+              onClick={() => setGameMode('grid3')}
+              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/50 border border-green-400"
+            >
+              ✅ GRID V3 (FIXED)
+            </button>
+            <button
+              onClick={() => setGameMode('grid2')}
+              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-red-500/50 border border-red-400"
+            >
+              🎮 GRID SYSTEM V2
+            </button>
+            <button
+              onClick={() => setGameMode('grid')}
+              className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-black px-8 py-3 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-yellow-500/50 border border-yellow-400"
+            >
+              🎯 NEW GRID GAME
             </button>
             <button
               onClick={() => setGameMode('game')}

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Domino as DominoType, createDominoSet } from '@/types/domino'
 import DominoComponent from './Domino'
 
@@ -539,31 +539,27 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
           </div>
 
           {/* Board dominoes */}
-          {gameState.board.map((domino, index) => {
-              const xPos = domino.x !== undefined ? domino.x : 50
-              const yPos = domino.y !== undefined ? domino.y : 'calc(50% - 4.4rem)'
-
-              // Direct style object to ensure it's applied
-              const positionStyle = {
-                position: 'absolute' as const,
-                left: `${xPos}%`,
-                top: typeof yPos === 'string' ? yPos : `${yPos}%`,
-                zIndex: 10
-              }
-
-              return (
+          <AnimatePresence>
+            {gameState.board.map((domino) => (
+              <motion.div
+                key={domino.id}
+                initial={{ scale: 0, rotate: 0 }}
+                animate={{ scale: 1, rotate: 0 }}
+                exit={{ scale: 0, rotate: 0 }}
+                className="absolute z-10"
+                style={{
+                  left: `${domino.x}%`,
+                  top: typeof domino.y === 'string' ? domino.y : `${domino.y}%`
+                }}
+              >
                 <div
-                  key={domino.id}
-                  style={positionStyle}
+                  style={{ transform: `translate(-50%, -50%) scale(0.75) rotate(${domino.rotation || 0}deg)` }}
                 >
-                  <div
-                    style={{ transform: `translate(-50%, -50%) scale(0.5) rotate(${domino.rotation || 0}deg)` }}
-                  >
-                    <DominoComponent domino={domino} />
-                  </div>
+                  <DominoComponent domino={domino} />
                 </div>
-              )
-            })}
+              </motion.div>
+            ))}
+          </AnimatePresence>
 
           {/* End values display */}
           {gameState.board.length > 0 && (
@@ -632,9 +628,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
               className="cursor-pointer"
               onClick={() => handleDominoClick(domino)}
             >
-              <div className="scale-75">
-                <DominoComponent domino={domino} showAnimation={true} />
-              </div>
+              <DominoComponent domino={domino} showAnimation={true} />
             </motion.div>
           ))}
         </div>

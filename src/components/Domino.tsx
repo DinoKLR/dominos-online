@@ -72,14 +72,14 @@ const DominoComponent: React.FC<DominoProps> = ({
             {/* Top half */}
             <div className="relative w-full h-20 flex items-center justify-center border-b-2 border-gray-600">
               <svg width="100%" height="100%" viewBox="0 0 100 100" className="absolute">
-                {renderDots(domino.left, 'left')}
+                {renderDots(domino.isFlipped ? domino.right : domino.left, 'left')}
               </svg>
             </div>
-            
+
             {/* Bottom half */}
             <div className="relative w-full h-20 flex items-center justify-center">
               <svg width="100%" height="100%" viewBox="0 0 100 100" className="absolute">
-                {renderDots(domino.right, 'right')}
+                {renderDots(domino.isFlipped ? domino.left : domino.right, 'right')}
               </svg>
             </div>
           </div>
