@@ -102,6 +102,13 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
     setLeftEnd(startDomino.left)
     setRightEnd(startDomino.right)
 
+    // If the starting domino is a double, set it as the first spinner
+    if (startDomino.isDouble) {
+      console.log('Starting domino is first spinner:', startDomino)
+      setFirstSpinner(firstPlaced)
+      setSpinnerSides(new Set())
+    }
+
     if (starter === 'player') {
       setPlayerHand(playerTiles.filter(d => d.id !== startDomino.id))
       setComputerHand(computerTiles)
@@ -153,23 +160,35 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
     if ((side === 'up' || side === 'down') && firstSpinner) {
       const spinnerValue = firstSpinner.domino.left
       // Orient domino correctly for vertical placement
-      if (domino.left === spinnerValue) {
-        placedDomino.isFlipped = false
+      // For UP: matching value should be at bottom (right in domino terms)
+      // For DOWN: matching value should be at top (left in domino terms)
+      if (side === 'up') {
+        // Playing above - need matching value at bottom
+        if (domino.right === spinnerValue) {
+          placedDomino.isFlipped = false // Right is already at bottom
+        } else {
+          placedDomino.isFlipped = true // Flip to put left at bottom
+        }
       } else {
-        placedDomino.isFlipped = true
+        // Playing below - need matching value at top
+        if (domino.left === spinnerValue) {
+          placedDomino.isFlipped = false // Left is already at top
+        } else {
+          placedDomino.isFlipped = true // Flip to put right at top
+        }
       }
 
       // Track which side of spinner was played
       setSpinnerSides(new Set([...spinnerSides, side]))
 
-      // Calculate position
+      // Calculate position with better spacing
       let x = firstSpinner.x
       let y = firstSpinner.y
 
       if (side === 'up') {
-        y = firstSpinner.y - 120 // Place above
+        y = firstSpinner.y - 165 // Even more space above
       } else {
-        y = firstSpinner.y + 120 // Place below
+        y = firstSpinner.y + 165 // Even more space below
       }
 
       const newPlaced: PlacedDomino = {
@@ -265,12 +284,31 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
 
     // Track the first double as the spinner
     if (!firstSpinner && placedDomino.isDouble) {
+      console.log('Setting first spinner:', placedDomino)
       setFirstSpinner(newPlaced)
-      setSpinnerSides(new Set([side]))
-    } else if (firstSpinner && side === 'left' && !spinnerSides.has('left')) {
-      setSpinnerSides(new Set([...spinnerSides, 'left']))
-    } else if (firstSpinner && side === 'right' && !spinnerSides.has('right')) {
-      setSpinnerSides(new Set([...spinnerSides, 'right']))
+      // Start with empty sides - will track as dominoes connect to it
+      setSpinnerSides(new Set())
+    }
+
+    // Check if this domino is connecting directly to the spinner
+    if (firstSpinner) {
+      // Check if we're placing next to the spinner
+      const isNextToSpinner = board.some(p =>
+        p === firstSpinner &&
+        (placedDomino.left === firstSpinner.domino.left ||
+         placedDomino.right === firstSpinner.domino.left)
+      )
+
+      if (isNextToSpinner || Math.abs(x - firstSpinner.x) < 200) {
+        // This domino is adjacent to spinner
+        if (x < firstSpinner.x && !spinnerSides.has('left')) {
+          console.log('Domino placed left of spinner')
+          setSpinnerSides(new Set([...spinnerSides, 'left']))
+        } else if (x > firstSpinner.x && !spinnerSides.has('right')) {
+          console.log('Domino placed right of spinner')
+          setSpinnerSides(new Set([...spinnerSides, 'right']))
+        }
+      }
     }
   }
 
@@ -284,6 +322,16 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
       spinnerSides.size >= 2 &&
       spinnerSides.size < 4 &&
       (domino.left === firstSpinner.domino.left || domino.right === firstSpinner.domino.left)
+
+    // Debug logging
+    if (firstSpinner) {
+      console.log('Spinner check:', {
+        domino: `${domino.left}-${domino.right}`,
+        spinnerValue: firstSpinner.domino.left,
+        spinnerSides: Array.from(spinnerSides),
+        canPlayOnSpinner
+      })
+    }
 
     if (!playable && !canPlayOnSpinner) {
       setMessage("Can't play this domino!")
