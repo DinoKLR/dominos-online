@@ -386,7 +386,7 @@ const DominoGame: React.FC<DominoGameProps> = ({ onGameEnd, onBackToHome }) => {
     }
     
     // Calculate score from the new ends (including spinner if applicable)
-    const score = calculateScore(newLeftEnd, newRightEnd, updatedSpinner)
+    const score = calculateScore(newLeftEnd ?? 0, newRightEnd ?? 0, updatedSpinner)
     
     // Debug logging
     console.log('Score calculation:', {
