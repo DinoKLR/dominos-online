@@ -278,13 +278,28 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
     if (currentPlayer !== 'player') return
 
     const playable = canPlay(domino)
-    if (!playable) {
+
+    // Also check spinner separately
+    const canPlayOnSpinner = firstSpinner &&
+      spinnerSides.size >= 2 &&
+      spinnerSides.size < 4 &&
+      (domino.left === firstSpinner.domino.left || domino.right === firstSpinner.domino.left)
+
+    if (!playable && !canPlayOnSpinner) {
       setMessage("Can't play this domino!")
       return
     }
 
-    // If can play on multiple sides, show choice buttons
-    if (playable === 'both' || playable === 'spinner') {
+    // If can play on spinner (up/down available)
+    if (canPlayOnSpinner || playable === 'spinner') {
+      setSelectedDomino(domino)
+      setShowSideChoice(true)
+      setMessage(`Choose where to play ${domino.left}-${domino.right}`)
+      return
+    }
+
+    // If can play on both regular sides
+    if (playable === 'both') {
       setSelectedDomino(domino)
       setShowSideChoice(true)
       setMessage(`Choose where to play ${domino.left}-${domino.right}`)
@@ -453,21 +468,22 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
           {/* Side choice buttons when needed */}
           {showSideChoice && selectedDomino && (
             <div className="flex gap-2 flex-wrap">
-              {canPlay(selectedDomino) !== 'spinner' && (
-                <>
-                  <button
-                    onClick={() => handleSideChoice('left')}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold"
-                  >
-                    Play LEFT (← {leftEnd})
-                  </button>
-                  <button
-                    onClick={() => handleSideChoice('right')}
-                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-bold"
-                  >
-                    Play RIGHT ({rightEnd} →)
-                  </button>
-                </>
+              {/* Show left/right if they're valid plays */}
+              {(selectedDomino.left === leftEnd || selectedDomino.right === leftEnd) && (
+                <button
+                  onClick={() => handleSideChoice('left')}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold"
+                >
+                  Play LEFT (← {leftEnd})
+                </button>
+              )}
+              {(selectedDomino.left === rightEnd || selectedDomino.right === rightEnd) && (
+                <button
+                  onClick={() => handleSideChoice('right')}
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-bold"
+                >
+                  Play RIGHT ({rightEnd} →)
+                </button>
               )}
               {/* Show spinner options if available */}
               {firstSpinner && spinnerSides.size >= 2 && !spinnerSides.has('up') && (
@@ -504,12 +520,19 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
         <div className="flex justify-center gap-2 flex-wrap">
           {playerHand.map(domino => {
             const playable = canPlay(domino)
+            const canPlayOnSpinner = firstSpinner &&
+              spinnerSides.size >= 2 &&
+              spinnerSides.size < 4 &&
+              (domino.left === firstSpinner.domino.left || domino.right === firstSpinner.domino.left)
+
+            const isPlayable = playable || canPlayOnSpinner
+
             return (
               <div
                 key={domino.id}
                 onClick={() => handleDominoClick(domino)}
                 className={`cursor-pointer transition-all ${
-                  playable && currentPlayer === 'player'
+                  isPlayable && currentPlayer === 'player'
                     ? 'hover:scale-110 hover:-translate-y-2'
                     : 'opacity-50 cursor-not-allowed'
                 }`}
