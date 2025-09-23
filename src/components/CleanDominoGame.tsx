@@ -8,6 +8,7 @@ interface Domino {
   left: number
   right: number
   isDouble: boolean
+  isFlipped?: boolean
 }
 
 interface PlacedDomino {
