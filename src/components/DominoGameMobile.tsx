@@ -270,8 +270,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       x: placement.x,
       y: placement.y,
       rotation: placement.rotation,
-      usePercentage: true
-    } as DominoType & { x: string | number; y: string | number; rotation: number; usePercentage: boolean }
+    } as DominoType & { x: string | number; y: string | number; rotation: number }
 
     // Update board - just append, don't reorder
     const newBoard = [...gameState.board, positionedDomino]
@@ -364,8 +363,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
           x: placement.x,
           y: placement.y,
           rotation: placement.rotation,
-          usePercentage: true
-        } as DominoType & { x: string | number; y: string | number; rotation: number; usePercentage: boolean }
+        } as DominoType & { x: string | number; y: string | number; rotation: number }
 
         // Update board - just append, don't reorder
         const newBoard = [...gameState.board, positionedDomino]
