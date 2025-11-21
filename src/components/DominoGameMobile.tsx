@@ -2,431 +2,428 @@
 
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Domino as DominoType, createDominoSet } from '@/types/domino'
 import DominoComponent from './Domino'
+
+interface Domino {
+  id: string
+  left: number
+  right: number
+  isDouble: boolean
+  isFlipped?: boolean
+}
+
+interface PlacedDomino {
+  domino: Domino
+  x: number
+  y: number
+  rotation: number
+  isFirstSpinner?: boolean
+  spinnerSide?: 'left' | 'right' | 'up' | 'down'
+}
 
 interface DominoGameMobileProps {
   onGameEnd: (winner: 'player' | 'computer') => void
   onBackToHome: () => void
 }
 
-interface GameState {
-  playerHand: DominoType[]
-  computerHand: DominoType[]
-  boneyard: DominoType[]
-  board: DominoType[]
-  currentPlayer: 'player' | 'computer'
-  gamePhase: 'setup' | 'playing' | 'ended'
-  leftEnd: number | null
-  rightEnd: number | null
-  winner: 'player' | 'computer' | null
-  gameMessage: string
-  playerScore: number
-  computerScore: number
-  firstSpinner: { domino: DominoType, horizontalPlayed: boolean, position: { x: number, y: number } } | null
-  openEnds: { left: number | null, right: number | null }
-}
-
-// GAME LOGIC FUNCTIONS
-const validateMove = (domino: DominoType, gameState: GameState): { canPlay: boolean, sides: string[] } => {
-  const leftEnd = gameState.openEnds.left
-  const rightEnd = gameState.openEnds.right
-
-  const canPlayLeft = leftEnd !== null && (domino.left === leftEnd || domino.right === leftEnd)
-  const canPlayRight = rightEnd !== null && (domino.left === rightEnd || domino.right === rightEnd)
-
-  const sides = []
-  if (canPlayLeft) sides.push('left')
-  if (canPlayRight) sides.push('right')
-
-  return { canPlay: sides.length > 0, sides }
-}
-
-const findStartingPlayer = (playerHand: DominoType[], computerHand: DominoType[]): { starter: 'player' | 'computer', startingDomino: DominoType } => {
-  // Find highest double
-  const allDoubles = [...playerHand, ...computerHand]
-    .filter(d => d.isDouble)
-    .sort((a, b) => b.left - a.left)
-
-  if (allDoubles.length > 0) {
-    const highestDouble = allDoubles[0]
-    const starter = playerHand.some(d => d.id === highestDouble.id) ? 'player' : 'computer'
-    return { starter, startingDomino: highestDouble }
-  }
-
-  // No doubles - find highest pip total
-  const playerHighest = playerHand.reduce((max, d) =>
-    (d.left + d.right > max.left + max.right ? d : max))
-  const computerHighest = computerHand.reduce((max, d) =>
-    (d.left + d.right > max.left + max.right ? d : max))
-
-  if (playerHighest.left + playerHighest.right >= computerHighest.left + computerHighest.right) {
-    return { starter: 'player', startingDomino: playerHighest }
-  } else {
-    return { starter: 'computer', startingDomino: computerHighest }
-  }
-}
-
-// PLACEMENT LOGIC FUNCTIONS
-const DOMINO_CONSTANTS = {
-  WIDTH: 4.5, // Percentage units (smaller for 75% scale)
-  HEIGHT: 8, // Percentage units (smaller for 75% scale)
-  SPACING: 0.5 // Gap between dominoes
-}
-
-const calculateDominoPlacement = (
-  domino: DominoType,
-  side: 'left' | 'right' | 'top' | 'bottom',
-  board: DominoType[],
-  gameState: GameState
-): { x: string | number, y: string | number, rotation: number } => {
-  // Use the same center as the crosshair guides
-  const centerY = 'calc(50% - 4.4rem)'
-
-  if (board.length === 0) {
-    // First domino - center position at crosshair intersection
-    return {
-      x: 50,
-      y: centerY,
-      rotation: domino.isDouble ? 0 : 90
-    }
-  }
-
-  // For the first play off the spinner
-  if (board.length === 1) {
-    const spinner = board[0]
-    if (spinner.isDouble && spinner.rotation === 0) {
-      // Playing off a vertical double (spinner)
-      const xPos = side === 'left'
-        ? 50 - (DOMINO_CONSTANTS.WIDTH + DOMINO_CONSTANTS.SPACING)
-        : 50 + (DOMINO_CONSTANTS.WIDTH + DOMINO_CONSTANTS.SPACING)
-
-      return {
-        x: xPos,
-        y: centerY,
-        rotation: 90 // Horizontal
-      }
-    }
-  }
-
-  // Find the actual ends of the line for subsequent plays
-  let leftmostX = 50
-  let rightmostX = 50
-
-  // Find leftmost and rightmost dominoes
-  for (const boardDomino of board) {
-    const x = typeof boardDomino.x === 'number' ? boardDomino.x : 50
-    if (x < leftmostX) {
-      leftmostX = x
-    }
-    if (x > rightmostX) {
-      rightmostX = x
-    }
-  }
-
-  const newX = side === 'left'
-    ? leftmostX - (DOMINO_CONSTANTS.WIDTH + DOMINO_CONSTANTS.SPACING)
-    : rightmostX + (DOMINO_CONSTANTS.WIDTH + DOMINO_CONSTANTS.SPACING)
-
-  return {
-    x: newX,
-    y: centerY,
-    rotation: 90 // Horizontal
-  }
-}
-
 const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackToHome }) => {
-  const [gameState, setGameState] = useState<GameState>({
-    playerHand: [],
-    computerHand: [],
-    boneyard: [],
-    board: [],
-    currentPlayer: 'player',
-    gamePhase: 'setup',
-    leftEnd: null,
-    rightEnd: null,
-    winner: null,
-    gameMessage: 'Starting game with centered dominoes...',
-    playerScore: 0,
-    computerScore: 0,
-    firstSpinner: null,
-    openEnds: { left: null, right: null }
-  })
+  const [board, setBoard] = useState<PlacedDomino[]>([])
+  const [leftEnd, setLeftEnd] = useState<number>(0)
+  const [rightEnd, setRightEnd] = useState<number>(0)
+  const [playerHand, setPlayerHand] = useState<Domino[]>([])
+  const [computerHand, setComputerHand] = useState<Domino[]>([])
+  const [boneyard, setBoneyard] = useState<Domino[]>([])
+  const [currentPlayer, setCurrentPlayer] = useState<'player' | 'computer'>('player')
+  const [message, setMessage] = useState('Starting game...')
+  const [selectedDomino, setSelectedDomino] = useState<Domino | null>(null)
+  const [showSideChoice, setShowSideChoice] = useState(false)
+  const [firstSpinner, setFirstSpinner] = useState<PlacedDomino | null>(null)
+  const [spinnerSides, setSpinnerSides] = useState<Set<string>>(new Set())
+  const [playerScore, setPlayerScore] = useState(0)
+  const [computerScore, setComputerScore] = useState(0)
 
-  // Initialize game with clean logic
-  useEffect(() => {
-    const dominoes = createDominoSet()
-    const shuffled = [...dominoes].sort(() => Math.random() - 0.5)
-
-    const playerHand = shuffled.slice(0, 7)
-    const computerHand = shuffled.slice(7, 14)
-    const boneyard = shuffled.slice(14)
-
-    // Use clean starting logic
-    const { starter, startingDomino } = findStartingPlayer(playerHand, computerHand)
-
-    const newPlayerHand = starter === 'player'
-      ? playerHand.filter(d => d.id !== startingDomino.id)
-      : playerHand
-    const newComputerHand = starter === 'computer'
-      ? computerHand.filter(d => d.id !== startingDomino.id)
-      : computerHand
-
-    setGameState({
-      playerHand: newPlayerHand,
-      computerHand: newComputerHand,
-      boneyard,
-      board: [{
-        ...startingDomino,
-        x: 50,
-        y: 50,
-        rotation: startingDomino.isDouble ? 0 : 90
-      }],
-      currentPlayer: starter === 'player' ? 'computer' : 'player',
-      gamePhase: 'playing',
-      leftEnd: null,
-      rightEnd: null,
-      winner: null,
-      gameMessage: `${starter === 'player' ? 'You' : 'Computer'} start with ${startingDomino.id}`,
-      playerScore: 0,
-      computerScore: 0,
-      firstSpinner: startingDomino.isDouble ? {
-        domino: startingDomino,
-        horizontalPlayed: false,
-        position: { x: 50, y: 50 }
-      } : null,
-      openEnds: {
-        left: startingDomino.left,
-        right: startingDomino.right
+  const createDominoes = () => {
+    const dominoes: Domino[] = []
+    for (let i = 0; i <= 6; i++) {
+      for (let j = i; j <= 6; j++) {
+        dominoes.push({
+          id: `${i}-${j}`,
+          left: i,
+          right: j,
+          isDouble: i === j
+        })
       }
-    })
+    }
+    return dominoes
+  }
+
+  useEffect(() => {
+    startGame()
   }, [])
 
-  // Draw from boneyard function
-  const drawFromBoneyard = (player: 'player' | 'computer') => {
-    if (gameState.boneyard.length === 0) {
-      // No more tiles to draw - pass turn
-      setGameState({
-        ...gameState,
-        currentPlayer: player === 'player' ? 'computer' : 'player',
-        gameMessage: `${player === 'player' ? 'You' : 'Computer'} cannot play and boneyard is empty. Turn passed.`
-      })
-      return
-    }
+  const startGame = () => {
+    const dominoes = createDominoes()
+    const shuffled = [...dominoes].sort(() => Math.random() - 0.5)
 
-    // Draw one tile from boneyard
-    const drawnTile = gameState.boneyard[0]
-    const newBoneyard = gameState.boneyard.slice(1)
+    const playerTiles = shuffled.slice(0, 7)
+    const computerTiles = shuffled.slice(7, 14)
+    const boneyardTiles = shuffled.slice(14)
 
-    if (player === 'player') {
-      setGameState({
-        ...gameState,
-        playerHand: [...gameState.playerHand, drawnTile],
-        boneyard: newBoneyard,
-        gameMessage: `Drew ${drawnTile.id} from boneyard`
-      })
-    } else {
-      setGameState({
-        ...gameState,
-        computerHand: [...gameState.computerHand, drawnTile],
-        boneyard: newBoneyard,
-        gameMessage: 'Computer drew from boneyard'
-      })
-    }
-  }
+    // Find highest double to start
+    let startDomino: Domino | null = null
+    let starter: 'player' | 'computer' = 'player'
 
-  // Check if player can play any domino
-  const canPlayerPlay = () => {
-    return gameState.playerHand.some(domino => {
-      const moveValidation = validateMove(domino, gameState)
-      return moveValidation.canPlay
-    })
-  }
-
-  // Clean domino play function
-  const playDomino = (domino: DominoType) => {
-    if (gameState.currentPlayer !== 'player') return
-
-    // Validate move using clean logic
-    const moveValidation = validateMove(domino, gameState)
-
-    if (!moveValidation.canPlay) {
-      setGameState({
-        ...gameState,
-        gameMessage: `Cannot play this domino!`
-      })
-      return
-    }
-
-    // Choose side (prefer left if both available)
-    const side = moveValidation.sides.includes('left') ? 'left' : 'right'
-
-    // Calculate placement using clean logic
-    const placement = calculateDominoPlacement(domino, side as any, gameState.board, gameState)
-
-    // Create positioned domino
-    const positionedDomino = {
-      ...domino,
-      x: placement.x,
-      y: placement.y,
-      rotation: placement.rotation,
-    } as DominoType & { x: string | number; y: string | number; rotation: number }
-
-    // Update board - just append, don't reorder
-    const newBoard = [...gameState.board, positionedDomino]
-
-    // Determine which end of the domino matches and update open ends
-    const newOpenEnds = { ...gameState.openEnds }
-    let needsFlip = false
-
-    if (side === 'left') {
-      // Check which end of the domino matches the left open end
-      if (domino.right === gameState.openEnds.left) {
-        newOpenEnds.left = domino.left
-        needsFlip = false // Right end touches left side, so domino is oriented correctly
-      } else {
-        newOpenEnds.left = domino.right
-        needsFlip = true // Left end touches left side, so domino needs to be flipped
+    for (let i = 6; i >= 0; i--) {
+      const playerDouble = playerTiles.find(d => d.isDouble && d.left === i)
+      if (playerDouble) {
+        startDomino = playerDouble
+        starter = 'player'
+        break
       }
-    } else {
-      // Check which end of the domino matches the right open end
-      if (domino.left === gameState.openEnds.right) {
-        newOpenEnds.right = domino.right
-        needsFlip = false // Left end touches right side, so domino is oriented correctly
-      } else {
-        newOpenEnds.right = domino.left
-        needsFlip = true // Right end touches right side, so domino needs to be flipped
+      const compDouble = computerTiles.find(d => d.isDouble && d.left === i)
+      if (compDouble) {
+        startDomino = compDouble
+        starter = 'computer'
+        break
       }
     }
 
-    // Apply flip if needed
-    if (needsFlip) {
-      positionedDomino.isFlipped = true
+    if (!startDomino) {
+      startDomino = playerTiles[0]
+      starter = 'player'
     }
 
-    // Update game state
-    setGameState({
-      ...gameState,
-      board: newBoard,
-      playerHand: gameState.playerHand.filter(d => d.id !== domino.id),
-      openEnds: newOpenEnds,
-      leftEnd: newOpenEnds.left,
-      rightEnd: newOpenEnds.right,
-      currentPlayer: 'computer',
-      gameMessage: 'Computer is thinking...'
-    })
-  }
-
-  const handleDominoClick = (domino: DominoType) => {
-    if (gameState.currentPlayer === 'player') {
-      playDomino(domino)
+    // Place first domino in center
+    const firstPlaced: PlacedDomino = {
+      domino: startDomino,
+      x: 600,
+      y: 200,
+      rotation: startDomino.isDouble ? 0 : 90
     }
+
+    setBoard([firstPlaced])
+    setLeftEnd(startDomino.left)
+    setRightEnd(startDomino.right)
+
+    // If the starting domino is a double, set it as the first spinner
+    if (startDomino.isDouble) {
+      setFirstSpinner(firstPlaced)
+      setSpinnerSides(new Set())
+    }
+
+    if (starter === 'player') {
+      setPlayerHand(playerTiles.filter(d => d.id !== startDomino.id))
+      setComputerHand(computerTiles)
+    } else {
+      setPlayerHand(playerTiles)
+      setComputerHand(computerTiles.filter(d => d.id !== startDomino.id))
+    }
+
+    setBoneyard(boneyardTiles)
+    setCurrentPlayer(starter === 'player' ? 'computer' : 'player')
+    setMessage(starter === 'player' ? "Computer's turn" : 'Your turn')
   }
 
-  // Computer AI logic
-  useEffect(() => {
-    if (gameState.currentPlayer === 'computer' && gameState.gamePhase === 'playing') {
-      const timer = setTimeout(() => {
-        const { computerHand, openEnds } = gameState
+  const canPlay = (domino: Domino): 'left' | 'right' | 'both' | 'spinner' | null => {
+    const matchesLeft = domino.left === leftEnd || domino.right === leftEnd
+    const matchesRight = domino.left === rightEnd || domino.right === rightEnd
 
-        // Find first playable domino
-        const playableDomino = computerHand.find(domino => {
-          const moveValidation = validateMove(domino, gameState)
-          return moveValidation.canPlay
-        })
+    // Check if we can play on the spinner (first double)
+    if (firstSpinner && spinnerSides.size >= 2 && spinnerSides.size < 4) {
+      const spinnerValue = firstSpinner.domino.left
+      const matchesSpinner = domino.left === spinnerValue || domino.right === spinnerValue
 
-        if (!playableDomino) {
-          // Computer cannot play - draw from boneyard
-          if (gameState.boneyard.length > 0) {
-            drawFromBoneyard('computer')
-            return
-          } else {
-            // No boneyard left - pass turn
-            setGameState({
-              ...gameState,
-              currentPlayer: 'player',
-              gameMessage: 'Computer passed! Your turn!'
-            })
-            return
-          }
+      if (matchesSpinner) {
+        if (!matchesLeft && !matchesRight) {
+          return 'spinner'
         }
+        if (matchesLeft || matchesRight) {
+          return 'spinner'
+        }
+      }
+    }
 
-        // Computer plays the domino
-        const moveValidation = validateMove(playableDomino, gameState)
-        const side = moveValidation.sides.includes('left') ? 'left' : 'right'
+    if (matchesLeft && matchesRight) return 'both'
+    if (matchesLeft) return 'left'
+    if (matchesRight) return 'right'
+    return null
+  }
 
-        // Calculate placement
-        const placement = calculateDominoPlacement(playableDomino, side as any, gameState.board, gameState)
+  const playDomino = (domino: Domino, side: 'left' | 'right' | 'up' | 'down') => {
+    let placedDomino = { ...domino }
 
-        const positionedDomino = {
-          ...playableDomino,
-          x: placement.x,
-          y: placement.y,
-          rotation: placement.rotation,
-        } as DominoType & { x: string | number; y: string | number; rotation: number }
-
-        // Update board - just append, don't reorder
-        const newBoard = [...gameState.board, positionedDomino]
-
-        // Determine which end of the domino matches and update open ends
-        const newOpenEnds = { ...gameState.openEnds }
-        let needsFlip = false
-
-        if (side === 'left') {
-          // Check which end of the domino matches the left open end
-          if (playableDomino.right === gameState.openEnds.left) {
-            newOpenEnds.left = playableDomino.left
-            needsFlip = false
-          } else {
-            newOpenEnds.left = playableDomino.right
-            needsFlip = true
-          }
+    // Handle spinner placement (up/down)
+    if ((side === 'up' || side === 'down') && firstSpinner) {
+      const spinnerValue = firstSpinner.domino.left
+      if (side === 'up') {
+        if (domino.right === spinnerValue) {
+          placedDomino.isFlipped = false
         } else {
-          // Check which end of the domino matches the right open end
-          if (playableDomino.left === gameState.openEnds.right) {
-            newOpenEnds.right = playableDomino.right
-            needsFlip = false
-          } else {
-            newOpenEnds.right = playableDomino.left
-            needsFlip = true
-          }
+          placedDomino.isFlipped = true
         }
-
-        // Apply flip if needed
-        if (needsFlip) {
-          positionedDomino.isFlipped = true
+      } else {
+        if (domino.left === spinnerValue) {
+          placedDomino.isFlipped = false
+        } else {
+          placedDomino.isFlipped = true
         }
+      }
 
-        setGameState({
-          ...gameState,
-          board: newBoard,
-          computerHand: computerHand.filter(d => d.id !== playableDomino.id),
-          openEnds: newOpenEnds,
-          leftEnd: newOpenEnds.left,
-          rightEnd: newOpenEnds.right,
-          currentPlayer: 'player',
-          gameMessage: 'Your turn!'
-        })
-      }, 1500)
+      setSpinnerSides(new Set([...spinnerSides, side]))
 
-      return () => clearTimeout(timer)
+      let x = firstSpinner.x
+      let y = firstSpinner.y
+
+      if (side === 'up') {
+        y = firstSpinner.y - 165
+      } else {
+        y = firstSpinner.y + 165
+      }
+
+      const newPlaced: PlacedDomino = {
+        domino: placedDomino,
+        x: x,
+        y: y,
+        rotation: 0,
+        spinnerSide: side
+      }
+
+      setBoard([...board, newPlaced])
+      return
     }
-  }, [gameState])
+
+    // Original left/right logic
+    if (side === 'left') {
+      if (domino.right === leftEnd) {
+        placedDomino.isFlipped = true
+        setLeftEnd(domino.left)
+      } else if (domino.left === leftEnd) {
+        placedDomino.isFlipped = false
+        setLeftEnd(domino.right)
+      }
+    } else {
+      if (domino.left === rightEnd) {
+        placedDomino.isFlipped = true
+        setRightEnd(domino.right)
+      } else if (domino.right === rightEnd) {
+        placedDomino.isFlipped = false
+        setRightEnd(domino.left)
+      }
+    }
+
+    // Calculate position
+    let x = 600
+    let y = 200
+
+    if (board.length > 0) {
+      if (side === 'left') {
+        const leftmost = board.reduce((min, p) => p.x < min.x ? p : min)
+        if (leftmost.domino.isDouble && !placedDomino.isDouble) {
+          x = leftmost.x - 120
+        } else if (!leftmost.domino.isDouble && placedDomino.isDouble) {
+          x = leftmost.x - 120
+        } else if (!leftmost.domino.isDouble && !placedDomino.isDouble) {
+          x = leftmost.x - 155
+        } else {
+          x = leftmost.x - 80
+        }
+      } else {
+        const rightmost = board.reduce((max, p) => p.x > max.x ? p : max)
+        if (rightmost.domino.isDouble && !placedDomino.isDouble) {
+          x = rightmost.x + 120
+        } else if (!rightmost.domino.isDouble && placedDomino.isDouble) {
+          x = rightmost.x + 120
+        } else if (!rightmost.domino.isDouble && !placedDomino.isDouble) {
+          x = rightmost.x + 155
+        } else {
+          x = rightmost.x + 80
+        }
+      }
+    }
+
+    const newPlaced: PlacedDomino = {
+      domino: placedDomino,
+      x: x,
+      y: y,
+      rotation: placedDomino.isDouble ? 0 : 90,
+      spinnerSide: side as 'left' | 'right'
+    }
+
+    setBoard([...board, newPlaced])
+
+    // Track the first double as the spinner
+    if (!firstSpinner && placedDomino.isDouble) {
+      setFirstSpinner(newPlaced)
+      setSpinnerSides(new Set())
+    }
+
+    // Check if this domino is connecting directly to the spinner
+    if (firstSpinner) {
+      if (Math.abs(x - firstSpinner.x) < 200) {
+        if (x < firstSpinner.x && !spinnerSides.has('left')) {
+          setSpinnerSides(new Set([...spinnerSides, 'left']))
+        } else if (x > firstSpinner.x && !spinnerSides.has('right')) {
+          setSpinnerSides(new Set([...spinnerSides, 'right']))
+        }
+      }
+    }
+  }
+
+  const handleDominoClick = (domino: Domino) => {
+    if (currentPlayer !== 'player') return
+
+    const playable = canPlay(domino)
+
+    const canPlayOnSpinner = firstSpinner &&
+      spinnerSides.size >= 2 &&
+      spinnerSides.size < 4 &&
+      (domino.left === firstSpinner.domino.left || domino.right === firstSpinner.domino.left)
+
+    if (!playable && !canPlayOnSpinner) {
+      setMessage("Can't play this domino!")
+      return
+    }
+
+    if (canPlayOnSpinner || playable === 'spinner') {
+      setSelectedDomino(domino)
+      setShowSideChoice(true)
+      setMessage(`Choose where to play ${domino.left}-${domino.right}`)
+      return
+    }
+
+    if (playable === 'both') {
+      setSelectedDomino(domino)
+      setShowSideChoice(true)
+      setMessage(`Choose where to play ${domino.left}-${domino.right}`)
+      return
+    }
+
+    playDomino(domino, playable as 'left' | 'right')
+
+    setPlayerHand(playerHand.filter(d => d.id !== domino.id))
+
+    if (playerHand.length === 1) {
+      setMessage('You won!')
+      setTimeout(() => onGameEnd('player'), 1500)
+      return
+    }
+
+    setCurrentPlayer('computer')
+    setMessage("Computer's turn")
+  }
+
+  const handleSideChoice = (side: 'left' | 'right' | 'up' | 'down') => {
+    if (!selectedDomino) return
+
+    playDomino(selectedDomino, side)
+    setPlayerHand(playerHand.filter(d => d.id !== selectedDomino.id))
+
+    setSelectedDomino(null)
+    setShowSideChoice(false)
+
+    if (playerHand.length === 1) {
+      setMessage('You won!')
+      setTimeout(() => onGameEnd('player'), 1500)
+      return
+    }
+
+    setCurrentPlayer('computer')
+    setMessage("Computer's turn")
+  }
+
+  const handleDraw = () => {
+    if (currentPlayer !== 'player' || boneyard.length === 0) return
+
+    const canPlayAny = playerHand.some(d => canPlay(d) !== null)
+    if (canPlayAny) {
+      setMessage('You can still play a domino!')
+      return
+    }
+
+    const drawn = boneyard[0]
+    setPlayerHand([...playerHand, drawn])
+    setBoneyard(boneyard.slice(1))
+
+    if (canPlay(drawn)) {
+      setMessage(`Drew ${drawn.left}-${drawn.right}. You can play it!`)
+    } else {
+      setMessage(`Drew ${drawn.left}-${drawn.right}. Computer's turn`)
+      setCurrentPlayer('computer')
+    }
+  }
+
+  // Computer AI
+  useEffect(() => {
+    if (currentPlayer !== 'computer') return
+
+    const timer = setTimeout(() => {
+      for (const domino of computerHand) {
+        const playable = canPlay(domino)
+        if (playable) {
+          const side = playable === 'both' ? 'right' : playable
+          playDomino(domino, side as 'left' | 'right')
+          setComputerHand(computerHand.filter(d => d.id !== domino.id))
+
+          if (computerHand.length === 1) {
+            setMessage('Computer won!')
+            setTimeout(() => onGameEnd('computer'), 1500)
+            return
+          }
+
+          setCurrentPlayer('player')
+          setMessage('Your turn')
+          return
+        }
+      }
+
+      // Can't play, try to draw
+      if (boneyard.length > 0) {
+        const drawn = boneyard[0]
+        const newHand = [...computerHand, drawn]
+        setComputerHand(newHand)
+        setBoneyard(boneyard.slice(1))
+
+        if (canPlay(drawn)) {
+          const side = canPlay(drawn) === 'both' ? 'right' : canPlay(drawn)
+          playDomino(drawn, side as 'left' | 'right')
+          setComputerHand(computerHand)
+          setMessage('Computer drew and played')
+        } else {
+          setMessage('Computer drew a tile')
+        }
+      } else {
+        setMessage('Computer passes - no valid moves')
+      }
+
+      setCurrentPlayer('player')
+      setMessage('Your turn')
+    }, 1500)
+
+    return () => clearTimeout(timer)
+  }, [currentPlayer, computerHand, leftEnd, rightEnd, boneyard])
+
+  // Calculate board bounds for centering
+  const getBoardBounds = () => {
+    if (board.length === 0) return { minX: 600, maxX: 600, width: 0 }
+    const minX = Math.min(...board.map(p => p.x))
+    const maxX = Math.max(...board.map(p => p.x))
+    return { minX, maxX, width: maxX - minX }
+  }
+
+  const bounds = getBoardBounds()
+  const boardCenterX = (bounds.minX + bounds.maxX) / 2
 
   return (
     <div className="fixed inset-0" style={{ backgroundColor: '#2a802a' }}>
       {/* Casino felt texture and lighting */}
       <div className="absolute inset-0">
-        {/* Subtle casino table lighting - brighter center, darker edges */}
-        <div 
-          className="absolute inset-0" 
+        <div
+          className="absolute inset-0"
           style={{
             background: 'radial-gradient(ellipse at center, transparent 0%, transparent 60%, rgba(0,0,0,0.2) 100%)'
           }}
         />
-        
-        {/* Felt fabric texture - very subtle grain pattern */}
-        <div 
+        <div
           className="absolute inset-0 opacity-15"
           style={{
             backgroundImage: `
@@ -436,9 +433,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
             backgroundSize: '4px 4px, 6px 6px'
           }}
         />
-        
-        {/* Soft fabric depth variations */}
-        <div 
+        <div
           className="absolute inset-0 opacity-10"
           style={{
             backgroundImage: `
@@ -448,24 +443,21 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
             backgroundSize: '20px 20px, 25px 25px'
           }}
         />
-        
-        {/* Center table lighting effect */}
-        <div 
-          className="absolute inset-0" 
+        <div
+          className="absolute inset-0"
           style={{
             background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.05) 0%, transparent 40%)'
           }}
         />
       </div>
 
-      {/* Top Header - Compact */}
+      {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 bg-black/30 backdrop-blur-sm px-4 py-1 z-20" style={{ height: '3rem' }}>
-        {/* Timer bar - Top (Computer's turn) */}
-        {gameState.currentPlayer === 'computer' && (
+        {currentPlayer === 'computer' && (
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/20">
             <motion.div
               className="h-full bg-yellow-400"
-              key={`computer-timer-${gameState.currentPlayer}`}
+              key={`computer-timer-${currentPlayer}`}
               initial={{ width: '100%' }}
               animate={{ width: '0%' }}
               transition={{ duration: 15, ease: 'linear' }}
@@ -473,27 +465,24 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
           </div>
         )}
         <div className="flex items-center justify-between">
-          {/* Left - Player Info */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-green-500 rounded flex items-center justify-center overflow-hidden" style={{ fontSize: '2.1rem', transform: 'translateY(-2px)' }}>
               <span style={{ transform: 'translateY(1px)' }}>🥷</span>
             </div>
             <div className="text-left">
               <div className="text-sm text-white font-bold">YOU</div>
-              <div className="text-white text-lg font-bold -mt-1">{gameState.playerScore}</div>
+              <div className="text-white text-lg font-bold -mt-1">{playerScore}</div>
             </div>
           </div>
 
-          {/* Center - Game Title */}
           <div className="text-center">
             <div className="text-lg text-white font-bold">FIVES to 100</div>
           </div>
 
-          {/* Right - Computer Info */}
           <div className="flex items-center gap-3">
             <div className="text-right">
               <div className="text-sm text-white font-bold">CPU</div>
-              <div className="text-white text-lg font-bold -mt-1">{gameState.computerScore}</div>
+              <div className="text-white text-lg font-bold -mt-1">{computerScore}</div>
             </div>
             <div className="w-8 h-8 bg-cyan-500 rounded flex items-center justify-center overflow-hidden" style={{ fontSize: '2.1rem', transform: 'translateY(-2px)' }}>
               <span style={{ transform: 'translateY(1px)' }}>👨‍⚕️</span>
@@ -502,19 +491,15 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         </div>
       </div>
 
-      {/* Game Board - Full Screen Responsive */}
-      <div className="absolute inset-0" style={{ paddingTop: '3rem', paddingBottom: '4rem' }}>
-        <div className="w-full h-full relative overflow-hidden">
-          {/* Temporary Center Guidelines - For playable area only */}
-          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-red-500 z-30 pointer-events-none opacity-70"></div>
-          <div className="absolute left-0 right-0 h-0.5 bg-red-500 z-30 pointer-events-none opacity-70" style={{ top: 'calc(50% - 4.4rem)' }}></div>
-
-          {/* NINJA BONES Watermark - Centered on the table */}
+      {/* Game Board */}
+      <div className="absolute inset-0" style={{ paddingTop: '3rem', paddingBottom: '11rem' }}>
+        <div className="w-full h-full relative overflow-auto">
+          {/* NINJA BONES Watermark */}
           <div
             className="absolute z-0 pointer-events-none"
             style={{
               left: '50%',
-              top: 'calc(50% - 4.4rem)',
+              top: '50%',
               transform: 'translate(-50%, -50%)'
             }}
           >
@@ -535,111 +520,163 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
             </div>
           </div>
 
-          {/* Board dominoes */}
-          {gameState.board.map((domino, index) => {
-              const xPos = domino.x !== undefined ? domino.x : 50
-              const yPos = domino.y !== undefined ? domino.y : 'calc(50% - 4.4rem)'
-
-              // Direct style object to ensure it's applied
-              const positionStyle = {
-                position: 'absolute' as const,
-                left: `${xPos}%`,
-                top: typeof yPos === 'string' ? yPos : `${yPos}%`,
-                zIndex: 10
-              }
-
-              return (
-                <div
-                  key={domino.id}
-                  style={positionStyle}
-                >
-                  <div
-                    style={{ transform: `translate(-50%, -50%) scale(0.5) rotate(${domino.rotation || 0}deg)` }}
-                  >
-                    <DominoComponent domino={domino} />
-                  </div>
-                </div>
-              )
-            })}
+          {/* Board container - scrollable */}
+          <div
+            className="relative h-full"
+            style={{
+              width: `${Math.max(1200, bounds.width + 400)}px`,
+              marginLeft: `max(0px, calc(50% - ${boardCenterX}px))`
+            }}
+          >
+            {board.map((placed, i) => (
+              <div
+                key={i}
+                className="absolute"
+                style={{
+                  left: `${placed.x}px`,
+                  top: `${placed.y}px`,
+                  transform: `translate(-50%, -50%) rotate(${placed.rotation}deg) scale(0.65)`
+                }}
+              >
+                <DominoComponent domino={placed.domino} />
+              </div>
+            ))}
+          </div>
 
           {/* End values display */}
-          {gameState.board.length > 0 && (
+          {board.length > 0 && (
             <>
               <div className="absolute left-4 top-1/2 -translate-y-1/2 bg-green-500/90 text-black px-3 py-2 rounded-lg font-bold shadow-lg z-20">
-                {gameState.leftEnd}
+                {leftEnd}
               </div>
               <div className="absolute right-4 top-1/2 -translate-y-1/2 bg-cyan-500/90 text-black px-3 py-2 rounded-lg font-bold shadow-lg z-20">
-                {gameState.rightEnd}
+                {rightEnd}
               </div>
             </>
           )}
-
         </div>
       </div>
 
+      {/* Side Choice Modal */}
+      {showSideChoice && selectedDomino && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-30">
+          <div className="bg-slate-800 p-6 rounded-xl shadow-xl">
+            <div className="text-white text-lg mb-4 text-center">Where to play {selectedDomino.left}-{selectedDomino.right}?</div>
+            <div className="flex gap-3 flex-wrap justify-center">
+              {(selectedDomino.left === leftEnd || selectedDomino.right === leftEnd) && (
+                <button
+                  onClick={() => handleSideChoice('left')}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold"
+                >
+                  LEFT (← {leftEnd})
+                </button>
+              )}
+              {(selectedDomino.left === rightEnd || selectedDomino.right === rightEnd) && (
+                <button
+                  onClick={() => handleSideChoice('right')}
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-bold"
+                >
+                  RIGHT ({rightEnd} →)
+                </button>
+              )}
+              {firstSpinner && spinnerSides.size >= 2 && !spinnerSides.has('up') &&
+                (selectedDomino.left === firstSpinner.domino.left || selectedDomino.right === firstSpinner.domino.left) && (
+                <button
+                  onClick={() => handleSideChoice('up')}
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded font-bold"
+                >
+                  UP (↑ {firstSpinner.domino.left})
+                </button>
+              )}
+              {firstSpinner && spinnerSides.size >= 2 && !spinnerSides.has('down') &&
+                (selectedDomino.left === firstSpinner.domino.left || selectedDomino.right === firstSpinner.domino.left) && (
+                <button
+                  onClick={() => handleSideChoice('down')}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded font-bold"
+                >
+                  DOWN (↓ {firstSpinner.domino.left})
+                </button>
+              )}
+              <button
+                onClick={() => { setShowSideChoice(false); setSelectedDomino(null); }}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded font-bold"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bottom Footer with Player Hand */}
-      <div className="absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-sm px-4 py-0.5 z-20">
-        {/* Timer bar - Bottom (Player's turn) */}
-        {gameState.currentPlayer === 'player' && (
+      <div className="absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-sm px-4 py-2 z-20">
+        {currentPlayer === 'player' && (
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-black/20">
             <motion.div
               className="h-full bg-yellow-400"
-              key={`player-timer-${gameState.currentPlayer}`}
+              key={`player-timer-${currentPlayer}`}
               initial={{ width: '100%' }}
               animate={{ width: '0%' }}
               transition={{ duration: 15, ease: 'linear' }}
             />
           </div>
         )}
-        {/* Top row - Emojis and counts above dominoes */}
-        <div className="flex items-center justify-between mb-0.5">
-          {/* Left - Emoji Button */}
-          <button className="text-xl hover:scale-110 transition-transform">
-            😊
-          </button>
 
-          {/* Center - Board and Boneyard counts + Draw button */}
+        {/* Status row */}
+        <div className="flex items-center justify-between mb-2">
+          <button className="text-xl hover:scale-110 transition-transform">😊</button>
+
           <div className="flex items-center gap-3">
-            <div className="text-sm text-white font-bold">
-              Board {gameState.board.length} | Boneyard {gameState.boneyard.length}
+            <button
+              onClick={handleDraw}
+              className="bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-600 disabled:opacity-50 text-black font-bold px-4 py-2 rounded transition-colors"
+              disabled={boneyard.length === 0 || currentPlayer !== 'player'}
+            >
+              DRAW ({boneyard.length})
+            </button>
+            <div className="text-sm text-white font-bold bg-black/30 px-3 py-1 rounded">
+              Your tiles: {playerHand.length} | Computer: {computerHand.length}
             </div>
-            {gameState.currentPlayer === 'player' && gameState.playerHand.length > 0 && !canPlayerPlay() && gameState.boneyard.length > 0 && (
-              <button
-                onClick={() => drawFromBoneyard('player')}
-                className="bg-yellow-500 hover:bg-yellow-400 text-black px-3 py-1 rounded font-bold text-sm transition-colors"
-              >
-                DRAW
-              </button>
-            )}
           </div>
 
-          {/* Right - Chat Button */}
-          <button className="text-xl hover:scale-110 transition-transform">
-            💬
-          </button>
+          <button className="text-xl hover:scale-110 transition-transform">💬</button>
         </div>
 
         {/* Player dominoes */}
-        <div className="flex items-center justify-center gap-2">
-          {gameState.playerHand.map((domino) => (
-            <motion.div
-              key={domino.id}
-              whileHover={{ y: -8, scale: 1.02 }}
-              whileTap={{ scale: 0.95 }}
-              className="cursor-pointer"
-              onClick={() => handleDominoClick(domino)}
-            >
-              <div className="scale-75">
-                <DominoComponent domino={domino} showAnimation={true} />
-              </div>
-            </motion.div>
-          ))}
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          {playerHand.map(domino => {
+            const playable = canPlay(domino)
+            const canPlayOnSpinner = firstSpinner &&
+              spinnerSides.size >= 2 &&
+              spinnerSides.size < 4 &&
+              (domino.left === firstSpinner.domino.left || domino.right === firstSpinner.domino.left)
+
+            const isPlayable = playable || canPlayOnSpinner
+
+            return (
+              <motion.div
+                key={domino.id}
+                whileHover={isPlayable && currentPlayer === 'player' ? { y: -8, scale: 1.05 } : {}}
+                whileTap={isPlayable && currentPlayer === 'player' ? { scale: 0.95 } : {}}
+                onClick={() => handleDominoClick(domino)}
+                className={`cursor-pointer transition-all ${
+                  isPlayable && currentPlayer === 'player'
+                    ? ''
+                    : 'opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <div className="scale-75">
+                  <DominoComponent domino={domino} />
+                </div>
+              </motion.div>
+            )
+          })}
         </div>
       </div>
 
       {/* Top Computer Hand (Hidden) */}
       <div className="absolute top-10 left-0 right-0 flex justify-center gap-1 z-10 px-4">
-        {gameState.computerHand.map((_, index) => (
+        {computerHand.map((_, index) => (
           <motion.div
             key={index}
             initial={{ y: -10, opacity: 0 }}
