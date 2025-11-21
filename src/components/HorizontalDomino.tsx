@@ -16,7 +16,7 @@ const HorizontalDomino: React.FC<HorizontalDominoProps> = ({
   className = ''
 }) => {
   const renderDots = (value: number) => {
-    const patterns: Record<number, JSX.Element[]> = {
+    const patterns: Record<number, React.JSX.Element[]> = {
       0: [],
       1: [<circle key="1" cx="25" cy="25" r="5" fill="#1a1a1a" />],
       2: [

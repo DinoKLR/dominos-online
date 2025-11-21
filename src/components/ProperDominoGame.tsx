@@ -354,8 +354,7 @@ const ProperDominoGame: React.FC<ProperDominoGameProps> = ({ onGameEnd, onBackTo
       return
     }
 
-    const side = playable === 'both' ? 'right' : playable
-    playDomino(domino, side as 'left' | 'right')
+    playDomino(domino, playable as 'left' | 'right')
 
     setPlayerHand(playerHand.filter(d => d.id !== domino.id))
 

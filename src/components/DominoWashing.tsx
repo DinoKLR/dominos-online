@@ -21,7 +21,7 @@ const DominoWashing: React.FC<DominoWashingProps> = ({
   const [timeLeft, setTimeLeft] = useState(7)
   const [washingComplete, setWashingComplete] = useState(false)
   const washAreaRef = useRef<HTMLDivElement>(null)
-  const timerRef = useRef<NodeJS.Timeout>()
+  const timerRef = useRef<NodeJS.Timeout>(null)
 
   useEffect(() => {
     // Initialize dominoes with random positions

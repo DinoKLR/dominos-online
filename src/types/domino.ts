@@ -7,6 +7,7 @@ export interface Domino {
   y?: number
   rotation?: number
   isFlipped?: boolean
+  usePercentage?: boolean
 }
 
 export interface Player {
