@@ -402,17 +402,6 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     return () => clearTimeout(timer)
   }, [currentPlayer, computerHand, leftEnd, rightEnd, boneyard])
 
-  // Calculate board bounds for centering
-  const getBoardBounds = () => {
-    if (board.length === 0) return { minX: 600, maxX: 600, width: 0 }
-    const minX = Math.min(...board.map(p => p.x))
-    const maxX = Math.max(...board.map(p => p.x))
-    return { minX, maxX, width: maxX - minX }
-  }
-
-  const bounds = getBoardBounds()
-  const boardCenterX = (bounds.minX + bounds.maxX) / 2
-
   return (
     <div className="fixed inset-0" style={{ backgroundColor: '#2a802a' }}>
       {/* Casino felt texture and lighting */}
@@ -522,10 +511,10 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
 
           {/* Board container - scrollable */}
           <div
-            className="relative h-full"
+            className="relative"
             style={{
-              width: `${Math.max(1200, bounds.width + 400)}px`,
-              marginLeft: `max(0px, calc(50% - ${boardCenterX}px))`
+              width: '2000px',
+              height: '600px'
             }}
           >
             {board.map((placed, i) => (
@@ -535,7 +524,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
                 style={{
                   left: `${placed.x}px`,
                   top: `${placed.y}px`,
-                  transform: `translate(-50%, -50%) rotate(${placed.rotation}deg) scale(0.65)`
+                  transform: `translate(-50%, -50%) rotate(${placed.rotation}deg)`
                 }}
               >
                 <DominoComponent domino={placed.domino} />
