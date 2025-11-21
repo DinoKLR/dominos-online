@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import DominoComponent from './Domino'
 
@@ -41,6 +41,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   const [spinnerSides, setSpinnerSides] = useState<Set<string>>(new Set())
   const [playerScore, setPlayerScore] = useState(0)
   const [computerScore, setComputerScore] = useState(0)
+  const boardRef = useRef<HTMLDivElement>(null)
 
   const createDominoes = () => {
     const dominoes: Domino[] = []
@@ -60,6 +61,13 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   useEffect(() => {
     startGame()
   }, [])
+
+  // Scroll to center board on mount
+  useEffect(() => {
+    if (boardRef.current && board.length > 0) {
+      // No scroll needed - domino at x:600 is visible without scrolling
+    }
+  }, [board.length])
 
   const startGame = () => {
     const dominoes = createDominoes()
@@ -93,11 +101,11 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       starter = 'player'
     }
 
-    // Place first domino in center
+    // Place first domino - will be centered via scroll
     const firstPlaced: PlacedDomino = {
       domino: startDomino,
-      x: 600,
-      y: 200,
+      x: 848,
+      y: 360,
       rotation: startDomino.isDouble ? 0 : 90
     }
 
@@ -192,32 +200,33 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       return
     }
 
-    // Original left/right logic
+    // Flip logic - flip so matching end touches the chain
     if (side === 'left') {
       if (domino.right === leftEnd) {
-        placedDomino.isFlipped = true
+        placedDomino.isFlipped = true  // Flip so right side faces left (touches chain)
         setLeftEnd(domino.left)
       } else if (domino.left === leftEnd) {
-        placedDomino.isFlipped = false
+        placedDomino.isFlipped = false  // Left side already faces left
         setLeftEnd(domino.right)
       }
     } else {
       if (domino.left === rightEnd) {
-        placedDomino.isFlipped = true
+        placedDomino.isFlipped = true  // Flip so left side faces right (touches chain)
         setRightEnd(domino.right)
       } else if (domino.right === rightEnd) {
-        placedDomino.isFlipped = false
+        placedDomino.isFlipped = false  // Right side already faces right
         setRightEnd(domino.left)
       }
     }
 
     // Calculate position
-    let x = 600
-    let y = 200
+    let x = 848
+    let y = 360
 
     if (board.length > 0) {
       if (side === 'left') {
         const leftmost = board.reduce((min, p) => p.x < min.x ? p : min)
+        y = leftmost.y // Inherit y from reference domino
         if (leftmost.domino.isDouble && !placedDomino.isDouble) {
           x = leftmost.x - 120
         } else if (!leftmost.domino.isDouble && placedDomino.isDouble) {
@@ -229,6 +238,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         }
       } else {
         const rightmost = board.reduce((max, p) => p.x > max.x ? p : max)
+        y = rightmost.y // Inherit y from reference domino
         if (rightmost.domino.isDouble && !placedDomino.isDouble) {
           x = rightmost.x + 120
         } else if (!rightmost.domino.isDouble && placedDomino.isDouble) {
@@ -480,35 +490,31 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         </div>
       </div>
 
+      {/* NINJA BONES Watermark - centered in game area */}
+      <div
+        className="absolute inset-0 flex items-center justify-center pointer-events-none z-0"
+        style={{ paddingTop: '3rem', paddingBottom: '11rem' }}
+      >
+        <div
+          className="text-center"
+          style={{
+            fontFamily: '"Arial", "Helvetica", sans-serif',
+            fontWeight: '600',
+            fontSize: '2.2rem',
+            color: 'rgba(255, 255, 255, 0.15)',
+            letterSpacing: '3px',
+            textTransform: 'uppercase',
+            lineHeight: '1.1'
+          }}
+        >
+          <div>NINJA</div>
+          <div>BONES</div>
+        </div>
+      </div>
+
       {/* Game Board */}
       <div className="absolute inset-0" style={{ paddingTop: '3rem', paddingBottom: '11rem' }}>
-        <div className="w-full h-full relative overflow-auto">
-          {/* NINJA BONES Watermark */}
-          <div
-            className="absolute z-0 pointer-events-none"
-            style={{
-              left: '50%',
-              top: '50%',
-              transform: 'translate(-50%, -50%)'
-            }}
-          >
-            <div
-              className="text-center"
-              style={{
-                fontFamily: '"Arial", "Helvetica", sans-serif',
-                fontWeight: '600',
-                fontSize: '2.2rem',
-                color: 'rgba(255, 255, 255, 0.15)',
-                letterSpacing: '3px',
-                textTransform: 'uppercase',
-                lineHeight: '1.1'
-              }}
-            >
-              <div>NINJA</div>
-              <div>BONES</div>
-            </div>
-          </div>
-
+        <div ref={boardRef} className="w-full h-full relative overflow-auto">
           {/* Board container - scrollable */}
           <div
             className="relative"
@@ -517,6 +523,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
               height: '600px'
             }}
           >
+
             {board.map((placed, i) => (
               <div
                 key={i}
