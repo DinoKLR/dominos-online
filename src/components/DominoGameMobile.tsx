@@ -474,7 +474,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         } else if (!leftmost.domino.isDouble && placedDomino.isDouble) {
           x = leftmost.x - 120  // Non-double to double
         } else if (!leftmost.domino.isDouble && !placedDomino.isDouble) {
-          x = leftmost.x - 160  // Non-double(160w) to non-double
+          x = leftmost.x - 165  // Non-double(160w) to non-double
         } else {
           x = leftmost.x - 80   // Double to double
         }
@@ -486,7 +486,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         } else if (!rightmost.domino.isDouble && placedDomino.isDouble) {
           x = rightmost.x + 120  // Non-double to double
         } else if (!rightmost.domino.isDouble && !placedDomino.isDouble) {
-          x = rightmost.x + 160  // Non-double to non-double
+          x = rightmost.x + 165  // Non-double to non-double
         } else {
           x = rightmost.x + 80   // Double to double
         }
