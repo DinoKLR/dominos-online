@@ -39,6 +39,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   const [showSideChoice, setShowSideChoice] = useState(false)
   const [firstSpinner, setFirstSpinner] = useState<PlacedDomino | null>(null)
   const [spinnerSides, setSpinnerSides] = useState<Set<string>>(new Set())
+  const [upEnd, setUpEnd] = useState<number | null>(null)  // Track the UP chain end
+  const [downEnd, setDownEnd] = useState<number | null>(null)  // Track the DOWN chain end
   const [playerScore, setPlayerScore] = useState(0)
   const [computerScore, setComputerScore] = useState(0)
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 400 })
@@ -101,6 +103,28 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     window.addEventListener('resize', updateViewportSize)
     return () => window.removeEventListener('resize', updateViewportSize)
   }, [])
+
+  // Track previous board length for scoring
+  const prevBoardLengthRef = useRef(0)
+
+  // Calculate and award scores after each play
+  useEffect(() => {
+    // Only score when a new domino was played (board grew)
+    if (board.length > prevBoardLengthRef.current && board.length > 1) {
+      const score = calculateFivesScore()
+      if (score > 0) {
+        // Award to the player who just played (opposite of current player since turn switched)
+        const scorer = currentPlayer === 'player' ? 'computer' : 'player'
+        if (scorer === 'player') {
+          setPlayerScore(prev => prev + score)
+          setMessage(prev => `${prev} +${score} points!`)
+        } else {
+          setComputerScore(prev => prev + score)
+        }
+      }
+    }
+    prevBoardLengthRef.current = board.length
+  }, [board.length, leftEnd, rightEnd, upEnd, downEnd])
 
   const createDominoes = () => {
     const dominoes: Domino[] = []
@@ -191,24 +215,66 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     setMessage(starter === 'player' ? "Computer's turn" : 'Your turn')
   }
 
-  const canPlay = (domino: Domino): 'left' | 'right' | 'both' | 'spinner' | null => {
+  // Calculate score for "Fives" - sum of all open ends divisible by 5
+  const calculateFivesScore = (): number => {
+    let sum = leftEnd + rightEnd
+
+    // Add UP chain end if it exists
+    if (upEnd !== null) {
+      sum += upEnd
+    } else if (firstSpinner && !spinnerSides.has('up') && spinnerSides.size >= 2) {
+      // UP not played yet but available - spinner value counts
+      sum += firstSpinner.domino.left
+    }
+
+    // Add DOWN chain end if it exists
+    if (downEnd !== null) {
+      sum += downEnd
+    } else if (firstSpinner && !spinnerSides.has('down') && spinnerSides.size >= 2) {
+      // DOWN not played yet but available - spinner value counts
+      sum += firstSpinner.domino.left
+    }
+
+    // Special case: if spinner exists but only left/right played (size < 2),
+    // the spinner counts both ends (but it's a double so same value counted once)
+    if (firstSpinner && spinnerSides.size < 2) {
+      // At this point, spinner is in the chain so its value is already counted in leftEnd or rightEnd
+      // No extra addition needed
+    }
+
+    // Score if divisible by 5
+    if (sum % 5 === 0) {
+      return sum
+    }
+    return 0
+  }
+
+  const canPlay = (domino: Domino): 'left' | 'right' | 'both' | 'up' | 'down' | 'spinner' | null => {
     const matchesLeft = domino.left === leftEnd || domino.right === leftEnd
     const matchesRight = domino.left === rightEnd || domino.right === rightEnd
 
-    // Check if we can play on the spinner (first double)
-    if (firstSpinner && spinnerSides.size >= 2 && spinnerSides.size < 4) {
+    // Check if we can play on UP or DOWN chains (if they exist)
+    const matchesUp = upEnd !== null && (domino.left === upEnd || domino.right === upEnd)
+    const matchesDown = downEnd !== null && (domino.left === downEnd || domino.right === downEnd)
+
+    // Check if we can play on the spinner (first double) - only if UP/DOWN not yet started
+    if (firstSpinner && spinnerSides.size >= 2) {
       const spinnerValue = firstSpinner.domino.left
       const matchesSpinner = domino.left === spinnerValue || domino.right === spinnerValue
 
-      if (matchesSpinner) {
-        if (!matchesLeft && !matchesRight) {
-          return 'spinner'
-        }
-        if (matchesLeft || matchesRight) {
-          return 'spinner'
-        }
+      // Can play UP if not already occupied
+      if (!spinnerSides.has('up') && matchesSpinner) {
+        return 'spinner'
+      }
+      // Can play DOWN if not already occupied
+      if (!spinnerSides.has('down') && matchesSpinner) {
+        return 'spinner'
       }
     }
+
+    // Check UP/DOWN chain continuation
+    if (matchesUp) return 'up'
+    if (matchesDown) return 'down'
 
     if (matchesLeft && matchesRight) return 'both'
     if (matchesLeft) return 'left'
@@ -219,21 +285,29 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   const playDomino = (domino: Domino, side: 'left' | 'right' | 'up' | 'down') => {
     let placedDomino = { ...domino }
 
-    // Handle spinner placement (up/down)
-    if ((side === 'up' || side === 'down') && firstSpinner) {
+    // Handle spinner placement (up/down) - first domino off spinner
+    if ((side === 'up' || side === 'down') && firstSpinner && !spinnerSides.has(side)) {
       const spinnerValue = firstSpinner.domino.left
+      let newEnd: number
+
       if (side === 'up') {
         if (domino.right === spinnerValue) {
           placedDomino.isFlipped = false
+          newEnd = domino.left  // Top of domino becomes the new UP end
         } else {
           placedDomino.isFlipped = true
+          newEnd = domino.right  // After flip, right becomes top
         }
+        setUpEnd(newEnd)
       } else {
         if (domino.left === spinnerValue) {
           placedDomino.isFlipped = false
+          newEnd = domino.right  // Bottom of domino becomes the new DOWN end
         } else {
           placedDomino.isFlipped = true
+          newEnd = domino.left  // After flip, left becomes bottom
         }
+        setDownEnd(newEnd)
       }
 
       setSpinnerSides(new Set([...spinnerSides, side]))
@@ -242,9 +316,9 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       let y = firstSpinner.y
 
       if (side === 'up') {
-        y = firstSpinner.y - 120  // Reduced from 165 - tighter vertical spacing
+        y = firstSpinner.y - 120
       } else {
-        y = firstSpinner.y + 120  // Reduced from 165 - tighter vertical spacing
+        y = firstSpinner.y + 120
       }
 
       const newPlaced: PlacedDomino = {
@@ -253,6 +327,66 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         y: y,
         rotation: 0,
         spinnerSide: side
+      }
+
+      setBoard([...board, newPlaced])
+      return
+    }
+
+    // Handle UP chain continuation
+    if (side === 'up' && upEnd !== null) {
+      let newEnd: number
+      if (domino.right === upEnd) {
+        placedDomino.isFlipped = false
+        newEnd = domino.left
+      } else {
+        placedDomino.isFlipped = true
+        newEnd = domino.right
+      }
+      setUpEnd(newEnd)
+
+      // Find the topmost domino in the UP chain
+      const upDominoes = board.filter(p => p.spinnerSide === 'up')
+      const topmost = upDominoes.length > 0
+        ? upDominoes.reduce((min, p) => p.y < min.y ? p : min)
+        : firstSpinner!
+
+      const newPlaced: PlacedDomino = {
+        domino: placedDomino,
+        x: topmost.x,
+        y: topmost.y - 120,
+        rotation: 0,
+        spinnerSide: 'up'
+      }
+
+      setBoard([...board, newPlaced])
+      return
+    }
+
+    // Handle DOWN chain continuation
+    if (side === 'down' && downEnd !== null) {
+      let newEnd: number
+      if (domino.left === downEnd) {
+        placedDomino.isFlipped = false
+        newEnd = domino.right
+      } else {
+        placedDomino.isFlipped = true
+        newEnd = domino.left
+      }
+      setDownEnd(newEnd)
+
+      // Find the bottommost domino in the DOWN chain
+      const downDominoes = board.filter(p => p.spinnerSide === 'down')
+      const bottommost = downDominoes.length > 0
+        ? downDominoes.reduce((max, p) => p.y > max.y ? p : max)
+        : firstSpinner!
+
+      const newPlaced: PlacedDomino = {
+        domino: placedDomino,
+        x: bottommost.x,
+        y: bottommost.y + 120,
+        rotation: 0,
+        spinnerSide: 'down'
       }
 
       setBoard([...board, newPlaced])
@@ -287,25 +421,25 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         const leftmost = board.reduce((min, p) => p.x < min.x ? p : min)
         y = leftmost.y // Inherit y from reference domino
         if (leftmost.domino.isDouble && !placedDomino.isDouble) {
-          x = leftmost.x - 115  // Double(80w) to non-double(160w): 40+80=120, slightly tighter
+          x = leftmost.x - 125  // Double(80w) to non-double(160w): 40+80=120 + small gap
         } else if (!leftmost.domino.isDouble && placedDomino.isDouble) {
-          x = leftmost.x - 115  // Non-double to double
+          x = leftmost.x - 125  // Non-double to double
         } else if (!leftmost.domino.isDouble && !placedDomino.isDouble) {
-          x = leftmost.x - 160  // Non-double(160w) to non-double: 80+80=160, no overlap
+          x = leftmost.x - 165  // Non-double(160w) to non-double: 80+80=160 + small gap
         } else {
-          x = leftmost.x - 85   // Double to double: 40+40=80, small gap
+          x = leftmost.x - 90   // Double to double: 40+40=80 + small gap
         }
       } else {
         const rightmost = board.reduce((max, p) => p.x > max.x ? p : max)
         y = rightmost.y // Inherit y from reference domino
         if (rightmost.domino.isDouble && !placedDomino.isDouble) {
-          x = rightmost.x + 115  // Double to non-double
+          x = rightmost.x + 125  // Double to non-double
         } else if (!rightmost.domino.isDouble && placedDomino.isDouble) {
-          x = rightmost.x + 115  // Non-double to double
+          x = rightmost.x + 125  // Non-double to double
         } else if (!rightmost.domino.isDouble && !placedDomino.isDouble) {
-          x = rightmost.x + 160  // Non-double to non-double: no overlap
+          x = rightmost.x + 165  // Non-double to non-double
         } else {
-          x = rightmost.x + 85   // Double to double
+          x = rightmost.x + 90   // Double to double
         }
       }
     }
@@ -343,31 +477,39 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
 
     const playable = canPlay(domino)
 
-    const canPlayOnSpinner = firstSpinner &&
-      spinnerSides.size >= 2 &&
-      spinnerSides.size < 4 &&
-      (domino.left === firstSpinner.domino.left || domino.right === firstSpinner.domino.left)
-
-    if (!playable && !canPlayOnSpinner) {
+    if (!playable) {
       setMessage("Can't play this domino!")
       return
     }
 
-    if (canPlayOnSpinner || playable === 'spinner') {
+    // Check if there are multiple play options
+    const matchesLeft = domino.left === leftEnd || domino.right === leftEnd
+    const matchesRight = domino.left === rightEnd || domino.right === rightEnd
+    const matchesUp = upEnd !== null && (domino.left === upEnd || domino.right === upEnd)
+    const matchesDown = downEnd !== null && (domino.left === downEnd || domino.right === downEnd)
+    const matchesSpinner = firstSpinner &&
+      (domino.left === firstSpinner.domino.left || domino.right === firstSpinner.domino.left) &&
+      spinnerSides.size >= 2 && spinnerSides.size < 4
+
+    const options = [
+      matchesLeft && 'left',
+      matchesRight && 'right',
+      matchesUp && 'up',
+      matchesDown && 'down',
+      matchesSpinner && !spinnerSides.has('up') && 'spinner_up',
+      matchesSpinner && !spinnerSides.has('down') && 'spinner_down'
+    ].filter(Boolean)
+
+    // If multiple options, show choice dialog
+    if (options.length > 1 || playable === 'spinner' || playable === 'both') {
       setSelectedDomino(domino)
       setShowSideChoice(true)
       setMessage(`Choose where to play ${domino.left}-${domino.right}`)
       return
     }
 
-    if (playable === 'both') {
-      setSelectedDomino(domino)
-      setShowSideChoice(true)
-      setMessage(`Choose where to play ${domino.left}-${domino.right}`)
-      return
-    }
-
-    playDomino(domino, playable as 'left' | 'right')
+    // Single option - play directly
+    playDomino(domino, playable as 'left' | 'right' | 'up' | 'down')
 
     setPlayerHand(playerHand.filter(d => d.id !== domino.id))
 
@@ -409,16 +551,45 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       return
     }
 
-    const drawn = boneyard[0]
-    setPlayerHand([...playerHand, drawn])
-    setBoneyard(boneyard.slice(1))
+    // Keep drawing until we get a playable tile or boneyard is empty
+    let newHand = [...playerHand]
+    let newBoneyard = [...boneyard]
+    let lastDrawn: Domino | null = null
+    let drawCount = 0
 
-    if (canPlay(drawn)) {
-      setMessage(`Drew ${drawn.left}-${drawn.right}. You can play it!`)
-    } else {
-      setMessage(`Drew ${drawn.left}-${drawn.right}. Computer's turn`)
-      setCurrentPlayer('computer')
+    while (newBoneyard.length > 0) {
+      const drawn = newBoneyard[0]
+      newHand = [...newHand, drawn]
+      newBoneyard = newBoneyard.slice(1)
+      lastDrawn = drawn
+      drawCount++
+
+      // Check if drawn tile can be played (using current ends)
+      const matchesAny =
+        drawn.left === leftEnd || drawn.right === leftEnd ||
+        drawn.left === rightEnd || drawn.right === rightEnd ||
+        (upEnd !== null && (drawn.left === upEnd || drawn.right === upEnd)) ||
+        (downEnd !== null && (drawn.left === downEnd || drawn.right === downEnd)) ||
+        (firstSpinner && spinnerSides.size >= 2 && spinnerSides.size < 4 &&
+          (drawn.left === firstSpinner.domino.left || drawn.right === firstSpinner.domino.left))
+
+      if (matchesAny) {
+        setPlayerHand(newHand)
+        setBoneyard(newBoneyard)
+        setMessage(`Drew ${drawCount} tile${drawCount > 1 ? 's' : ''}. ${drawn.left}-${drawn.right} can be played!`)
+        return
+      }
     }
+
+    // Drew all tiles, none playable
+    setPlayerHand(newHand)
+    setBoneyard(newBoneyard)
+    if (lastDrawn) {
+      setMessage(`Drew ${drawCount} tile${drawCount > 1 ? 's' : ''}, none playable. Computer's turn`)
+    } else {
+      setMessage('Boneyard empty. Computer\'s turn')
+    }
+    setCurrentPlayer('computer')
   }
 
   // Computer AI
@@ -426,11 +597,21 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     if (currentPlayer !== 'computer') return
 
     const timer = setTimeout(() => {
+      // Try to play a domino
       for (const domino of computerHand) {
         const playable = canPlay(domino)
         if (playable) {
-          const side = playable === 'both' ? 'right' : playable
-          playDomino(domino, side as 'left' | 'right')
+          // Handle spinner specially - choose up if available, else down
+          let side: 'left' | 'right' | 'up' | 'down'
+          if (playable === 'spinner') {
+            side = !spinnerSides.has('up') ? 'up' : 'down'
+          } else if (playable === 'both') {
+            side = 'right'
+          } else {
+            side = playable
+          }
+
+          playDomino(domino, side)
           setComputerHand(computerHand.filter(d => d.id !== domino.id))
 
           if (computerHand.length === 1) {
@@ -445,21 +626,58 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         }
       }
 
-      // Can't play, try to draw
-      if (boneyard.length > 0) {
-        const drawn = boneyard[0]
-        const newHand = [...computerHand, drawn]
-        setComputerHand(newHand)
-        setBoneyard(boneyard.slice(1))
+      // Can't play, keep drawing until we can
+      let newHand = [...computerHand]
+      let newBoneyard = [...boneyard]
+      let drawCount = 0
 
-        if (canPlay(drawn)) {
-          const side = canPlay(drawn) === 'both' ? 'right' : canPlay(drawn)
-          playDomino(drawn, side as 'left' | 'right')
-          setComputerHand(computerHand)
-          setMessage('Computer drew and played')
-        } else {
-          setMessage('Computer drew a tile')
+      while (newBoneyard.length > 0) {
+        const drawn = newBoneyard[0]
+        newHand = [...newHand, drawn]
+        newBoneyard = newBoneyard.slice(1)
+        drawCount++
+
+        // Check if drawn tile can be played
+        const matchesAny =
+          drawn.left === leftEnd || drawn.right === leftEnd ||
+          drawn.left === rightEnd || drawn.right === rightEnd ||
+          (upEnd !== null && (drawn.left === upEnd || drawn.right === upEnd)) ||
+          (downEnd !== null && (drawn.left === downEnd || drawn.right === downEnd)) ||
+          (firstSpinner && spinnerSides.size >= 2 && spinnerSides.size < 4 &&
+            (drawn.left === firstSpinner.domino.left || drawn.right === firstSpinner.domino.left))
+
+        if (matchesAny) {
+          // Determine which side to play
+          let side: 'left' | 'right' | 'up' | 'down' = 'right'
+          if (drawn.left === leftEnd || drawn.right === leftEnd) side = 'left'
+          else if (drawn.left === rightEnd || drawn.right === rightEnd) side = 'right'
+          else if (upEnd !== null && (drawn.left === upEnd || drawn.right === upEnd)) side = 'up'
+          else if (downEnd !== null && (drawn.left === downEnd || drawn.right === downEnd)) side = 'down'
+          else if (firstSpinner && !spinnerSides.has('up')) side = 'up'
+          else if (firstSpinner && !spinnerSides.has('down')) side = 'down'
+
+          setComputerHand(newHand.filter(d => d.id !== drawn.id))
+          setBoneyard(newBoneyard)
+          playDomino(drawn, side)
+          setMessage(`Computer drew ${drawCount} tile${drawCount > 1 ? 's' : ''} and played`)
+
+          if (newHand.length === 1) {
+            setMessage('Computer won!')
+            setTimeout(() => onGameEnd('computer'), 1500)
+            return
+          }
+
+          setCurrentPlayer('player')
+          setMessage('Your turn')
+          return
         }
+      }
+
+      // Drew all tiles, none playable
+      setComputerHand(newHand)
+      setBoneyard(newBoneyard)
+      if (drawCount > 0) {
+        setMessage(`Computer drew ${drawCount} tile${drawCount > 1 ? 's' : ''}, passes`)
       } else {
         setMessage('Computer passes - no valid moves')
       }
@@ -469,7 +687,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     }, 1500)
 
     return () => clearTimeout(timer)
-  }, [currentPlayer, computerHand, leftEnd, rightEnd, boneyard])
+  }, [currentPlayer, computerHand, leftEnd, rightEnd, upEnd, downEnd, boneyard, firstSpinner, spinnerSides])
 
   return (
     <div className="fixed inset-0" style={{ backgroundColor: '#2a802a' }}>
@@ -645,7 +863,26 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
                   RIGHT ({rightEnd} →)
                 </button>
               )}
-              {firstSpinner && spinnerSides.size >= 2 && !spinnerSides.has('up') &&
+              {/* UP chain continuation */}
+              {upEnd !== null && (selectedDomino.left === upEnd || selectedDomino.right === upEnd) && (
+                <button
+                  onClick={() => handleSideChoice('up')}
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded font-bold"
+                >
+                  UP (↑ {upEnd})
+                </button>
+              )}
+              {/* DOWN chain continuation */}
+              {downEnd !== null && (selectedDomino.left === downEnd || selectedDomino.right === downEnd) && (
+                <button
+                  onClick={() => handleSideChoice('down')}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded font-bold"
+                >
+                  DOWN (↓ {downEnd})
+                </button>
+              )}
+              {/* First play on spinner UP */}
+              {firstSpinner && spinnerSides.size >= 2 && !spinnerSides.has('up') && upEnd === null &&
                 (selectedDomino.left === firstSpinner.domino.left || selectedDomino.right === firstSpinner.domino.left) && (
                 <button
                   onClick={() => handleSideChoice('up')}
@@ -654,7 +891,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
                   UP (↑ {firstSpinner.domino.left})
                 </button>
               )}
-              {firstSpinner && spinnerSides.size >= 2 && !spinnerSides.has('down') &&
+              {/* First play on spinner DOWN */}
+              {firstSpinner && spinnerSides.size >= 2 && !spinnerSides.has('down') && downEnd === null &&
                 (selectedDomino.left === firstSpinner.domino.left || selectedDomino.right === firstSpinner.domino.left) && (
                 <button
                   onClick={() => handleSideChoice('down')}
