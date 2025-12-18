@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import DominoComponent from './Domino'
 
@@ -41,7 +41,66 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   const [spinnerSides, setSpinnerSides] = useState<Set<string>>(new Set())
   const [playerScore, setPlayerScore] = useState(0)
   const [computerScore, setComputerScore] = useState(0)
+  const [viewportSize, setViewportSize] = useState({ width: 800, height: 400 })
   const boardRef = useRef<HTMLDivElement>(null)
+
+  // Calculate board bounds and scale factor
+  const boardTransform = useMemo(() => {
+    if (board.length === 0) {
+      return { scale: 1, translateX: 0, translateY: 0 }
+    }
+
+    const DOMINO_WIDTH = 80
+    const DOMINO_HEIGHT = 160
+    const PADDING = 60
+
+    // Calculate bounds of all dominoes
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+
+    board.forEach(placed => {
+      // Account for rotation - doubles are vertical (80w x 160h), non-doubles are horizontal (160w x 80h)
+      const isHorizontal = placed.rotation === 90
+      const halfWidth = isHorizontal ? DOMINO_HEIGHT / 2 : DOMINO_WIDTH / 2
+      const halfHeight = isHorizontal ? DOMINO_WIDTH / 2 : DOMINO_HEIGHT / 2
+
+      minX = Math.min(minX, placed.x - halfWidth)
+      maxX = Math.max(maxX, placed.x + halfWidth)
+      minY = Math.min(minY, placed.y - halfHeight)
+      maxY = Math.max(maxY, placed.y + halfHeight)
+    })
+
+    const contentWidth = maxX - minX + PADDING * 2
+    const contentHeight = maxY - minY + PADDING * 2
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+
+    // Calculate scale to fit viewport (with padding)
+    const scaleX = viewportSize.width / contentWidth
+    const scaleY = viewportSize.height / contentHeight
+    const scale = Math.min(scaleX, scaleY, 1.0) // Never scale up, only down
+
+    return {
+      scale,
+      centerX,
+      centerY,
+      contentWidth,
+      contentHeight
+    }
+  }, [board, viewportSize])
+
+  // Track viewport size
+  useEffect(() => {
+    const updateViewportSize = () => {
+      if (boardRef.current) {
+        const rect = boardRef.current.getBoundingClientRect()
+        setViewportSize({ width: rect.width, height: rect.height })
+      }
+    }
+
+    updateViewportSize()
+    window.addEventListener('resize', updateViewportSize)
+    return () => window.removeEventListener('resize', updateViewportSize)
+  }, [])
 
   const createDominoes = () => {
     const dominoes: Domino[] = []
@@ -183,9 +242,9 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       let y = firstSpinner.y
 
       if (side === 'up') {
-        y = firstSpinner.y - 165
+        y = firstSpinner.y - 120  // Reduced from 165 - tighter vertical spacing
       } else {
-        y = firstSpinner.y + 165
+        y = firstSpinner.y + 120  // Reduced from 165 - tighter vertical spacing
       }
 
       const newPlaced: PlacedDomino = {
@@ -228,25 +287,25 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         const leftmost = board.reduce((min, p) => p.x < min.x ? p : min)
         y = leftmost.y // Inherit y from reference domino
         if (leftmost.domino.isDouble && !placedDomino.isDouble) {
-          x = leftmost.x - 120
+          x = leftmost.x - 115  // Double(80w) to non-double(160w): 40+80=120, slightly tighter
         } else if (!leftmost.domino.isDouble && placedDomino.isDouble) {
-          x = leftmost.x - 120
+          x = leftmost.x - 115  // Non-double to double
         } else if (!leftmost.domino.isDouble && !placedDomino.isDouble) {
-          x = leftmost.x - 155
+          x = leftmost.x - 160  // Non-double(160w) to non-double: 80+80=160, no overlap
         } else {
-          x = leftmost.x - 80
+          x = leftmost.x - 85   // Double to double: 40+40=80, small gap
         }
       } else {
         const rightmost = board.reduce((max, p) => p.x > max.x ? p : max)
         y = rightmost.y // Inherit y from reference domino
         if (rightmost.domino.isDouble && !placedDomino.isDouble) {
-          x = rightmost.x + 120
+          x = rightmost.x + 115  // Double to non-double
         } else if (!rightmost.domino.isDouble && placedDomino.isDouble) {
-          x = rightmost.x + 120
+          x = rightmost.x + 115  // Non-double to double
         } else if (!rightmost.domino.isDouble && !placedDomino.isDouble) {
-          x = rightmost.x + 155
+          x = rightmost.x + 160  // Non-double to non-double: no overlap
         } else {
-          x = rightmost.x + 80
+          x = rightmost.x + 85   // Double to double
         }
       }
     }
@@ -514,29 +573,40 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
 
       {/* Game Board */}
       <div className="absolute inset-0" style={{ paddingTop: '3rem', paddingBottom: '11rem' }}>
-        <div ref={boardRef} className="w-full h-full relative overflow-auto">
-          {/* Board container - scrollable */}
+        <div ref={boardRef} className="w-full h-full relative overflow-hidden flex items-center justify-center">
+          {/* Board container - dynamically scaled */}
           <div
             className="relative"
             style={{
-              width: '2000px',
-              height: '600px'
+              transform: `scale(${boardTransform.scale})`,
+              transformOrigin: 'center center',
+              transition: 'transform 0.3s ease-out'
             }}
           >
-
-            {board.map((placed, i) => (
-              <div
-                key={i}
-                className="absolute"
-                style={{
-                  left: `${placed.x}px`,
-                  top: `${placed.y}px`,
-                  transform: `translate(-50%, -50%) rotate(${placed.rotation}deg)`
-                }}
-              >
-                <DominoComponent domino={placed.domino} />
-              </div>
-            ))}
+            {/* Inner container for absolute positioning */}
+            <div
+              className="relative"
+              style={{
+                width: `${boardTransform.contentWidth || 200}px`,
+                height: `${boardTransform.contentHeight || 200}px`,
+                left: board.length > 0 ? `${-(boardTransform.centerX || 0) + (boardTransform.contentWidth || 200) / 2}px` : '0px',
+                top: board.length > 0 ? `${-(boardTransform.centerY || 0) + (boardTransform.contentHeight || 200) / 2}px` : '0px'
+              }}
+            >
+              {board.map((placed, i) => (
+                <div
+                  key={i}
+                  className="absolute"
+                  style={{
+                    left: `${placed.x}px`,
+                    top: `${placed.y}px`,
+                    transform: `translate(-50%, -50%) rotate(${placed.rotation}deg)`
+                  }}
+                >
+                  <DominoComponent domino={placed.domino} />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* End values display */}
