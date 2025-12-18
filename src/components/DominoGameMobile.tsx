@@ -104,27 +104,82 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     return () => window.removeEventListener('resize', updateViewportSize)
   }, [])
 
-  // Track previous board length for scoring
-  const prevBoardLengthRef = useRef(0)
+  // Calculate and award score - called directly after a play with new values
+  const awardScore = (
+    scorer: 'player' | 'computer',
+    newBoard: PlacedDomino[],
+    newLeftEnd: number,
+    newRightEnd: number,
+    newUpEnd: number | null,
+    newDownEnd: number | null,
+    newSpinnerSides: Set<string>,
+    spinner: PlacedDomino | null
+  ) => {
+    // Calculate sum of all open ends
+    let sum = 0
 
-  // Calculate and award scores after each play
-  useEffect(() => {
-    // Only score when a new domino was played (board grew)
-    if (board.length > prevBoardLengthRef.current && board.length > 1) {
-      const score = calculateFivesScore()
-      if (score > 0) {
-        // Award to the player who just played (opposite of current player since turn switched)
-        const scorer = currentPlayer === 'player' ? 'computer' : 'player'
-        if (scorer === 'player') {
-          setPlayerScore(prev => prev + score)
-          setMessage(prev => `${prev} +${score} points!`)
+    // Find leftmost and rightmost dominoes to check if they're doubles
+    const leftmostDomino = newBoard.reduce((min, p) =>
+      (p.spinnerSide === 'left' || p.spinnerSide === undefined) && p.x < min.x ? p : min,
+      newBoard[0]
+    )
+    const rightmostDomino = newBoard.reduce((max, p) =>
+      (p.spinnerSide === 'right' || p.spinnerSide === undefined) && p.x > max.x ? p : max,
+      newBoard[0]
+    )
+
+    // Left end - doubles count twice
+    if (leftmostDomino.domino.isDouble) {
+      sum += newLeftEnd * 2
+    } else {
+      sum += newLeftEnd
+    }
+
+    // Right end - doubles count twice
+    if (rightmostDomino.domino.isDouble) {
+      sum += newRightEnd * 2
+    } else {
+      sum += newRightEnd
+    }
+
+    // UP chain end
+    if (newUpEnd !== null) {
+      const upDominoes = newBoard.filter(p => p.spinnerSide === 'up')
+      if (upDominoes.length > 0) {
+        const topmostDomino = upDominoes.reduce((min, p) => p.y < min.y ? p : min)
+        if (topmostDomino.domino.isDouble) {
+          sum += newUpEnd * 2
         } else {
-          setComputerScore(prev => prev + score)
+          sum += newUpEnd
         }
       }
     }
-    prevBoardLengthRef.current = board.length
-  }, [board.length, leftEnd, rightEnd, upEnd, downEnd])
+
+    // DOWN chain end
+    if (newDownEnd !== null) {
+      const downDominoes = newBoard.filter(p => p.spinnerSide === 'down')
+      if (downDominoes.length > 0) {
+        const bottommostDomino = downDominoes.reduce((max, p) => p.y > max.y ? p : max)
+        if (bottommostDomino.domino.isDouble) {
+          sum += newDownEnd * 2
+        } else {
+          sum += newDownEnd
+        }
+      }
+    }
+
+    // Score if divisible by 5 and greater than 0
+    if (sum > 0 && sum % 5 === 0) {
+      if (scorer === 'player') {
+        setPlayerScore(prev => prev + sum)
+        setMessage(`Your turn +${sum} points!`)
+      } else {
+        setComputerScore(prev => prev + sum)
+      }
+      return sum
+    }
+    return 0
+  }
 
   const createDominoes = () => {
     const dominoes: Domino[] = []
@@ -215,39 +270,6 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     setMessage(starter === 'player' ? "Computer's turn" : 'Your turn')
   }
 
-  // Calculate score for "Fives" - sum of all open ends divisible by 5
-  const calculateFivesScore = (): number => {
-    let sum = leftEnd + rightEnd
-
-    // Add UP chain end if it exists
-    if (upEnd !== null) {
-      sum += upEnd
-    } else if (firstSpinner && !spinnerSides.has('up') && spinnerSides.size >= 2) {
-      // UP not played yet but available - spinner value counts
-      sum += firstSpinner.domino.left
-    }
-
-    // Add DOWN chain end if it exists
-    if (downEnd !== null) {
-      sum += downEnd
-    } else if (firstSpinner && !spinnerSides.has('down') && spinnerSides.size >= 2) {
-      // DOWN not played yet but available - spinner value counts
-      sum += firstSpinner.domino.left
-    }
-
-    // Special case: if spinner exists but only left/right played (size < 2),
-    // the spinner counts both ends (but it's a double so same value counted once)
-    if (firstSpinner && spinnerSides.size < 2) {
-      // At this point, spinner is in the chain so its value is already counted in leftEnd or rightEnd
-      // No extra addition needed
-    }
-
-    // Score if divisible by 5
-    if (sum % 5 === 0) {
-      return sum
-    }
-    return 0
-  }
 
   const canPlay = (domino: Domino): 'left' | 'right' | 'both' | 'up' | 'down' | 'spinner' | null => {
     const matchesLeft = domino.left === leftEnd || domino.right === leftEnd
@@ -282,7 +304,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     return null
   }
 
-  const playDomino = (domino: Domino, side: 'left' | 'right' | 'up' | 'down') => {
+  const playDomino = (domino: Domino, side: 'left' | 'right' | 'up' | 'down', scorer: 'player' | 'computer') => {
     let placedDomino = { ...domino }
 
     // Handle spinner placement (up/down) - first domino off spinner
@@ -298,7 +320,6 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
           placedDomino.isFlipped = true
           newEnd = domino.right  // After flip, right becomes top
         }
-        setUpEnd(newEnd)
       } else {
         if (domino.left === spinnerValue) {
           placedDomino.isFlipped = false
@@ -307,10 +328,9 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
           placedDomino.isFlipped = true
           newEnd = domino.left  // After flip, left becomes bottom
         }
-        setDownEnd(newEnd)
       }
 
-      setSpinnerSides(new Set([...spinnerSides, side]))
+      const newSpinnerSides = new Set([...spinnerSides, side])
 
       let x = firstSpinner.x
       let y = firstSpinner.y
@@ -329,7 +349,21 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         spinnerSide: side
       }
 
-      setBoard([...board, newPlaced])
+      const newBoard = [...board, newPlaced]
+      const newUpEnd = side === 'up' ? newEnd : upEnd
+      const newDownEnd = side === 'down' ? newEnd : downEnd
+
+      // Award score with new values
+      awardScore(scorer, newBoard, leftEnd, rightEnd, newUpEnd, newDownEnd, newSpinnerSides, firstSpinner)
+
+      // Update state
+      if (side === 'up') {
+        setUpEnd(newEnd)
+      } else {
+        setDownEnd(newEnd)
+      }
+      setSpinnerSides(newSpinnerSides)
+      setBoard(newBoard)
       return
     }
 
@@ -343,7 +377,6 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         placedDomino.isFlipped = true
         newEnd = domino.right
       }
-      setUpEnd(newEnd)
 
       // Find the topmost domino in the UP chain
       const upDominoes = board.filter(p => p.spinnerSide === 'up')
@@ -359,7 +392,14 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         spinnerSide: 'up'
       }
 
-      setBoard([...board, newPlaced])
+      const newBoard = [...board, newPlaced]
+
+      // Award score with new values
+      awardScore(scorer, newBoard, leftEnd, rightEnd, newEnd, downEnd, spinnerSides, firstSpinner)
+
+      // Update state
+      setUpEnd(newEnd)
+      setBoard(newBoard)
       return
     }
 
@@ -373,7 +413,6 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         placedDomino.isFlipped = true
         newEnd = domino.left
       }
-      setDownEnd(newEnd)
 
       // Find the bottommost domino in the DOWN chain
       const downDominoes = board.filter(p => p.spinnerSide === 'down')
@@ -389,26 +428,36 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         spinnerSide: 'down'
       }
 
-      setBoard([...board, newPlaced])
+      const newBoard = [...board, newPlaced]
+
+      // Award score with new values
+      awardScore(scorer, newBoard, leftEnd, rightEnd, upEnd, newEnd, spinnerSides, firstSpinner)
+
+      // Update state
+      setDownEnd(newEnd)
+      setBoard(newBoard)
       return
     }
 
     // Flip logic - flip so matching end touches the chain
+    let newLeftEnd = leftEnd
+    let newRightEnd = rightEnd
+
     if (side === 'left') {
       if (domino.right === leftEnd) {
         placedDomino.isFlipped = true  // Flip so right side faces left (touches chain)
-        setLeftEnd(domino.left)
+        newLeftEnd = domino.left
       } else if (domino.left === leftEnd) {
         placedDomino.isFlipped = false  // Left side already faces left
-        setLeftEnd(domino.right)
+        newLeftEnd = domino.right
       }
     } else {
       if (domino.left === rightEnd) {
         placedDomino.isFlipped = true  // Flip so left side faces right (touches chain)
-        setRightEnd(domino.right)
+        newRightEnd = domino.right
       } else if (domino.right === rightEnd) {
         placedDomino.isFlipped = false  // Right side already faces right
-        setRightEnd(domino.left)
+        newRightEnd = domino.left
       }
     }
 
@@ -452,23 +501,44 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       spinnerSide: side as 'left' | 'right'
     }
 
-    setBoard([...board, newPlaced])
+    const newBoard = [...board, newPlaced]
+
+    // Determine new spinner and spinnerSides
+    let newSpinner = firstSpinner
+    let newSpinnerSides = spinnerSides
 
     // Track the first double as the spinner
     if (!firstSpinner && placedDomino.isDouble) {
-      setFirstSpinner(newPlaced)
-      setSpinnerSides(new Set())
+      newSpinner = newPlaced
+      newSpinnerSides = new Set()
     }
 
     // Check if this domino is connecting directly to the spinner
     if (firstSpinner) {
       if (Math.abs(x - firstSpinner.x) < 200) {
         if (x < firstSpinner.x && !spinnerSides.has('left')) {
-          setSpinnerSides(new Set([...spinnerSides, 'left']))
+          newSpinnerSides = new Set([...spinnerSides, 'left'])
         } else if (x > firstSpinner.x && !spinnerSides.has('right')) {
-          setSpinnerSides(new Set([...spinnerSides, 'right']))
+          newSpinnerSides = new Set([...spinnerSides, 'right'])
         }
       }
+    }
+
+    // Award score with new values
+    awardScore(scorer, newBoard, newLeftEnd, newRightEnd, upEnd, downEnd, newSpinnerSides, newSpinner)
+
+    // Update state
+    if (side === 'left') {
+      setLeftEnd(newLeftEnd)
+    } else {
+      setRightEnd(newRightEnd)
+    }
+    setBoard(newBoard)
+    if (newSpinner !== firstSpinner) {
+      setFirstSpinner(newSpinner)
+    }
+    if (newSpinnerSides !== spinnerSides) {
+      setSpinnerSides(newSpinnerSides)
     }
   }
 
@@ -509,7 +579,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     }
 
     // Single option - play directly
-    playDomino(domino, playable as 'left' | 'right' | 'up' | 'down')
+    playDomino(domino, playable as 'left' | 'right' | 'up' | 'down', 'player')
 
     setPlayerHand(playerHand.filter(d => d.id !== domino.id))
 
@@ -526,7 +596,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   const handleSideChoice = (side: 'left' | 'right' | 'up' | 'down') => {
     if (!selectedDomino) return
 
-    playDomino(selectedDomino, side)
+    playDomino(selectedDomino, side, 'player')
     setPlayerHand(playerHand.filter(d => d.id !== selectedDomino.id))
 
     setSelectedDomino(null)
@@ -611,7 +681,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
             side = playable
           }
 
-          playDomino(domino, side)
+          playDomino(domino, side, 'computer')
           setComputerHand(computerHand.filter(d => d.id !== domino.id))
 
           if (computerHand.length === 1) {
@@ -658,7 +728,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
 
           setComputerHand(newHand.filter(d => d.id !== drawn.id))
           setBoneyard(newBoneyard)
-          playDomino(drawn, side)
+          playDomino(drawn, side, 'computer')
           setMessage(`Computer drew ${drawCount} tile${drawCount > 1 ? 's' : ''} and played`)
 
           if (newHand.length === 1) {
