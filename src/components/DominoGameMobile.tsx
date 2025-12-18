@@ -336,9 +336,9 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       let y = firstSpinner.y
 
       if (side === 'up') {
-        y = firstSpinner.y - 140
+        y = firstSpinner.y - 150
       } else {
-        y = firstSpinner.y + 140
+        y = firstSpinner.y + 150
       }
 
       const newPlaced: PlacedDomino = {
@@ -387,7 +387,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       const newPlaced: PlacedDomino = {
         domino: placedDomino,
         x: topmost.x,
-        y: topmost.y - 140,
+        y: topmost.y - 150,
         rotation: 0,
         spinnerSide: 'up'
       }
@@ -423,7 +423,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       const newPlaced: PlacedDomino = {
         domino: placedDomino,
         x: bottommost.x,
-        y: bottommost.y + 140,
+        y: bottommost.y + 150,
         rotation: 0,
         spinnerSide: 'down'
       }
@@ -470,9 +470,9 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         const leftmost = board.reduce((min, p) => p.x < min.x ? p : min)
         y = leftmost.y // Inherit y from reference domino
         if (leftmost.domino.isDouble && !placedDomino.isDouble) {
-          x = leftmost.x - 120  // Double(80w) to non-double(160w)
+          x = leftmost.x - 115  // Double(80w) to non-double(160w)
         } else if (!leftmost.domino.isDouble && placedDomino.isDouble) {
-          x = leftmost.x - 120  // Non-double to double
+          x = leftmost.x - 115  // Non-double to double
         } else if (!leftmost.domino.isDouble && !placedDomino.isDouble) {
           x = leftmost.x - 165  // Non-double(160w) to non-double
         } else {
@@ -482,9 +482,9 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         const rightmost = board.reduce((max, p) => p.x > max.x ? p : max)
         y = rightmost.y // Inherit y from reference domino
         if (rightmost.domino.isDouble && !placedDomino.isDouble) {
-          x = rightmost.x + 120  // Double to non-double
+          x = rightmost.x + 115  // Double to non-double
         } else if (!rightmost.domino.isDouble && placedDomino.isDouble) {
-          x = rightmost.x + 120  // Non-double to double
+          x = rightmost.x + 115  // Non-double to double
         } else if (!rightmost.domino.isDouble && !placedDomino.isDouble) {
           x = rightmost.x + 165  // Non-double to non-double
         } else {
