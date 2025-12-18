@@ -336,9 +336,9 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       let y = firstSpinner.y
 
       if (side === 'up') {
-        y = firstSpinner.y - 165
+        y = firstSpinner.y - 140
       } else {
-        y = firstSpinner.y + 165
+        y = firstSpinner.y + 140
       }
 
       const newPlaced: PlacedDomino = {
@@ -387,7 +387,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       const newPlaced: PlacedDomino = {
         domino: placedDomino,
         x: topmost.x,
-        y: topmost.y - 165,
+        y: topmost.y - 140,
         rotation: 0,
         spinnerSide: 'up'
       }
@@ -423,7 +423,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       const newPlaced: PlacedDomino = {
         domino: placedDomino,
         x: bottommost.x,
-        y: bottommost.y + 165,
+        y: bottommost.y + 140,
         rotation: 0,
         spinnerSide: 'down'
       }
@@ -474,7 +474,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         } else if (!leftmost.domino.isDouble && placedDomino.isDouble) {
           x = leftmost.x - 120  // Non-double to double
         } else if (!leftmost.domino.isDouble && !placedDomino.isDouble) {
-          x = leftmost.x - 155  // Non-double(160w) to non-double
+          x = leftmost.x - 160  // Non-double(160w) to non-double
         } else {
           x = leftmost.x - 80   // Double to double
         }
@@ -486,7 +486,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         } else if (!rightmost.domino.isDouble && placedDomino.isDouble) {
           x = rightmost.x + 120  // Non-double to double
         } else if (!rightmost.domino.isDouble && !placedDomino.isDouble) {
-          x = rightmost.x + 155  // Non-double to non-double
+          x = rightmost.x + 160  // Non-double to non-double
         } else {
           x = rightmost.x + 80   // Double to double
         }
