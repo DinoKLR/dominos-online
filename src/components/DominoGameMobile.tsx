@@ -345,7 +345,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         domino: placedDomino,
         x: x,
         y: y,
-        rotation: 0,
+        rotation: placedDomino.isDouble ? 90 : 0,  // Doubles are horizontal in vertical chain
         spinnerSide: side
       }
 
@@ -384,11 +384,19 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         ? upDominoes.reduce((min, p) => p.y < min.y ? p : min)
         : firstSpinner!
 
+      // Adjust spacing based on whether this or previous domino is a double
+      const prevIsDouble = topmost.domino.isDouble
+      const thisIsDouble = placedDomino.isDouble
+      let yOffset = 160
+      if (prevIsDouble && !thisIsDouble) yOffset = 120  // Horizontal double to vertical non-double
+      else if (!prevIsDouble && thisIsDouble) yOffset = 120  // Vertical non-double to horizontal double
+      else if (prevIsDouble && thisIsDouble) yOffset = 80  // Both doubles (horizontal)
+
       const newPlaced: PlacedDomino = {
         domino: placedDomino,
         x: topmost.x,
-        y: topmost.y - 160,
-        rotation: 0,
+        y: topmost.y - yOffset,
+        rotation: placedDomino.isDouble ? 90 : 0,  // Doubles are horizontal in vertical chain
         spinnerSide: 'up'
       }
 
@@ -420,11 +428,19 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         ? downDominoes.reduce((max, p) => p.y > max.y ? p : max)
         : firstSpinner!
 
+      // Adjust spacing based on whether this or previous domino is a double
+      const prevIsDouble = bottommost.domino.isDouble
+      const thisIsDouble = placedDomino.isDouble
+      let yOffset = 160
+      if (prevIsDouble && !thisIsDouble) yOffset = 120  // Horizontal double to vertical non-double
+      else if (!prevIsDouble && thisIsDouble) yOffset = 120  // Vertical non-double to horizontal double
+      else if (prevIsDouble && thisIsDouble) yOffset = 80  // Both doubles (horizontal)
+
       const newPlaced: PlacedDomino = {
         domino: placedDomino,
         x: bottommost.x,
-        y: bottommost.y + 160,
-        rotation: 0,
+        y: bottommost.y + yOffset,
+        rotation: placedDomino.isDouble ? 90 : 0,  // Doubles are horizontal in vertical chain
         spinnerSide: 'down'
       }
 
