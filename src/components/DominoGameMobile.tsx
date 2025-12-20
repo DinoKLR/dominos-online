@@ -54,7 +54,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
 
     const DOMINO_WIDTH = 80
     const DOMINO_HEIGHT = 160
-    const PADDING = 100  // Extra padding to trigger scaling earlier
+    const PADDING = 140  // Extra padding to trigger scaling earlier
 
     // Calculate bounds of all dominoes
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
