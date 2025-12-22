@@ -45,9 +45,14 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   const [computerScore, setComputerScore] = useState(0)
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 400 })
   const [roundEndInfo, setRoundEndInfo] = useState<{
-    winner: 'player' | 'computer'
+    winner: 'player' | 'computer' | 'tie'
     loserTiles: Domino[]
     pointsAwarded: number
+    isLocked?: boolean  // True if game was locked (no one could play)
+    playerTiles?: Domino[]  // For locked games, show both hands
+    computerTiles?: Domino[]
+    playerPips?: number
+    computerPips?: number
   } | null>(null)
   const [gameWinner, setGameWinner] = useState<'player' | 'computer' | null>(null)
   const boardRef = useRef<HTMLDivElement>(null)
@@ -338,8 +343,81 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     setRoundEndInfo({ winner, loserTiles, pointsAwarded })
   }
 
+  // Check if game is locked (neither player can play, boneyard empty)
+  const checkLockedGame = (currentHand: Domino[], otherHand: Domino[], currentBoneyard: Domino[]): boolean => {
+    if (currentBoneyard.length > 0) return false
+
+    // Check if current player can play
+    const currentCanPlay = currentHand.some(d => {
+      const matchesLeft = d.left === leftEnd || d.right === leftEnd
+      const matchesRight = d.left === rightEnd || d.right === rightEnd
+      const matchesUp = upEnd !== null && (d.left === upEnd || d.right === upEnd)
+      const matchesDown = downEnd !== null && (d.left === downEnd || d.right === downEnd)
+      const matchesSpinner = firstSpinner && spinnerSides.has('left') && spinnerSides.has('right') &&
+        (d.left === firstSpinner.domino.left || d.right === firstSpinner.domino.left) &&
+        (!spinnerSides.has('up') || !spinnerSides.has('down'))
+      return matchesLeft || matchesRight || matchesUp || matchesDown || matchesSpinner
+    })
+
+    if (currentCanPlay) return false
+
+    // Check if other player can play
+    const otherCanPlay = otherHand.some(d => {
+      const matchesLeft = d.left === leftEnd || d.right === leftEnd
+      const matchesRight = d.left === rightEnd || d.right === rightEnd
+      const matchesUp = upEnd !== null && (d.left === upEnd || d.right === upEnd)
+      const matchesDown = downEnd !== null && (d.left === downEnd || d.right === downEnd)
+      const matchesSpinner = firstSpinner && spinnerSides.has('left') && spinnerSides.has('right') &&
+        (d.left === firstSpinner.domino.left || d.right === firstSpinner.domino.left) &&
+        (!spinnerSides.has('up') || !spinnerSides.has('down'))
+      return matchesLeft || matchesRight || matchesUp || matchesDown || matchesSpinner
+    })
+
+    return !otherCanPlay
+  }
+
+  // Handle locked game - neither player can play
+  const handleLockedGame = () => {
+    const playerPips = playerHand.reduce((sum, d) => sum + d.left + d.right, 0)
+    const computerPips = computerHand.reduce((sum, d) => sum + d.left + d.right, 0)
+
+    let winner: 'player' | 'computer' | 'tie'
+    let pointsAwarded = 0
+
+    if (playerPips < computerPips) {
+      // Player wins - gets computer's pips rounded to nearest 5
+      winner = 'player'
+      pointsAwarded = Math.round(computerPips / 5) * 5
+      const newScore = playerScore + pointsAwarded
+      setPlayerScore(newScore)
+      if (newScore >= WINNING_SCORE) setGameWinner('player')
+    } else if (computerPips < playerPips) {
+      // Computer wins - gets player's pips rounded to nearest 5
+      winner = 'computer'
+      pointsAwarded = Math.round(playerPips / 5) * 5
+      const newScore = computerScore + pointsAwarded
+      setComputerScore(newScore)
+      if (newScore >= WINNING_SCORE) setGameWinner('computer')
+    } else {
+      // Tie - no points awarded
+      winner = 'tie'
+      pointsAwarded = 0
+    }
+
+    setRoundEndInfo({
+      winner,
+      loserTiles: [],
+      pointsAwarded,
+      isLocked: true,
+      playerTiles: [...playerHand],
+      computerTiles: [...computerHand],
+      playerPips,
+      computerPips
+    })
+  }
+
   // Start a new round after showing round end
-  const startNewRound = (winner: 'player' | 'computer') => {
+  const startNewRound = (winner: 'player' | 'computer' | 'tie') => {
     // Clear round end overlay
     setRoundEndInfo(null)
 
@@ -356,24 +434,47 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     const computerTiles = shuffled.slice(7, 14)
     const boneyardTiles = shuffled.slice(14)
 
-    // Winner plays first - find their highest double, or any domino
-    const winnerTiles = winner === 'player' ? playerTiles : computerTiles
-    const loserTiles = winner === 'player' ? computerTiles : playerTiles
-
     let startDomino: Domino | null = null
+    let starter: 'player' | 'computer' = winner === 'tie' ? 'player' : winner
 
-    // First try to find highest double in winner's hand
-    for (let i = 6; i >= 0; i--) {
-      const winnerDouble = winnerTiles.find(d => d.isDouble && d.left === i)
-      if (winnerDouble) {
-        startDomino = winnerDouble
-        break
+    if (winner === 'tie') {
+      // Tie - find highest double between both players (like starting a new game)
+      for (let i = 6; i >= 0; i--) {
+        const playerDouble = playerTiles.find(d => d.isDouble && d.left === i)
+        if (playerDouble) {
+          startDomino = playerDouble
+          starter = 'player'
+          break
+        }
+        const compDouble = computerTiles.find(d => d.isDouble && d.left === i)
+        if (compDouble) {
+          startDomino = compDouble
+          starter = 'computer'
+          break
+        }
       }
-    }
+      // If no doubles, player goes first with their first tile
+      if (!startDomino) {
+        startDomino = playerTiles[0]
+        starter = 'player'
+      }
+    } else {
+      // Winner plays first - find their highest double, or any domino
+      const winnerTiles = winner === 'player' ? playerTiles : computerTiles
 
-    // If winner has no double, they play their first tile
-    if (!startDomino) {
-      startDomino = winnerTiles[0]
+      // First try to find highest double in winner's hand
+      for (let i = 6; i >= 0; i--) {
+        const winnerDouble = winnerTiles.find(d => d.isDouble && d.left === i)
+        if (winnerDouble) {
+          startDomino = winnerDouble
+          break
+        }
+      }
+
+      // If winner has no double, they play their first tile
+      if (!startDomino) {
+        startDomino = winnerTiles[0]
+      }
     }
 
     // Place first domino
@@ -399,7 +500,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       setRightEnd(startDomino.left)
     }
 
-    if (winner === 'player') {
+    if (starter === 'player') {
       setPlayerHand(playerTiles.filter(d => d.id !== startDomino!.id))
       setComputerHand(computerTiles)
     } else {
@@ -408,14 +509,14 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     }
 
     setBoneyard(boneyardTiles)
-    // After winner plays first domino, it's the other player's turn
-    setCurrentPlayer(winner === 'player' ? 'computer' : 'player')
+    // After starter plays first domino, it's the other player's turn
+    setCurrentPlayer(starter === 'player' ? 'computer' : 'player')
 
     // Score the first domino if it's a scoring value
     const firstScore = startDomino.left + startDomino.right
     if (firstScore > 0 && firstScore % 5 === 0) {
-      const newScore = (winner === 'player' ? playerScore : computerScore) + firstScore
-      if (winner === 'player') {
+      const newScore = (starter === 'player' ? playerScore : computerScore) + firstScore
+      if (starter === 'player') {
         setPlayerScore(newScore)
         setMessage(`New round! You scored ${firstScore}. Computer's turn`)
       } else {
@@ -424,10 +525,10 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       }
       // Check for game win from first domino score
       if (newScore >= WINNING_SCORE) {
-        setGameWinner(winner)
+        setGameWinner(starter)
       }
     } else {
-      setMessage(winner === 'player' ? "New round! Computer's turn" : "New round! Your turn")
+      setMessage(starter === 'player' ? "New round! Computer's turn" : "New round! Your turn")
     }
   }
 
@@ -791,11 +892,23 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   }
 
   const handleDraw = () => {
-    if (currentPlayer !== 'player' || boneyard.length === 0) return
+    if (currentPlayer !== 'player') return
 
     const canPlayAny = playerHand.some(d => canPlay(d) !== null)
     if (canPlayAny) {
       setMessage('You can still play a domino!')
+      return
+    }
+
+    // If boneyard is empty and player can't play, check for locked game
+    if (boneyard.length === 0) {
+      if (checkLockedGame(playerHand, computerHand, boneyard)) {
+        handleLockedGame()
+        return
+      }
+      // Not locked - just pass to computer
+      setMessage('No playable tiles. Computer\'s turn')
+      setCurrentPlayer('computer')
       return
     }
 
@@ -818,7 +931,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         drawn.left === rightEnd || drawn.right === rightEnd ||
         (upEnd !== null && (drawn.left === upEnd || drawn.right === upEnd)) ||
         (downEnd !== null && (drawn.left === downEnd || drawn.right === downEnd)) ||
-        (firstSpinner && spinnerSides.size >= 2 && spinnerSides.size < 4 &&
+        (firstSpinner && spinnerSides.has('left') && spinnerSides.has('right') &&
+          (!spinnerSides.has('up') || !spinnerSides.has('down')) &&
           (drawn.left === firstSpinner.domino.left || drawn.right === firstSpinner.domino.left))
 
       if (matchesAny) {
@@ -829,9 +943,15 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       }
     }
 
-    // Drew all tiles, none playable
+    // Drew all tiles, none playable - check for locked game
     setPlayerHand(newHand)
     setBoneyard(newBoneyard)
+
+    if (checkLockedGame(newHand, computerHand, newBoneyard)) {
+      handleLockedGame()
+      return
+    }
+
     if (lastDrawn) {
       setMessage(`Drew ${drawCount} tile${drawCount > 1 ? 's' : ''}, none playable. Computer's turn`)
     } else {
@@ -923,17 +1043,23 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         }
       }
 
-      // Drew all tiles, none playable
+      // Drew all tiles, none playable - check for locked game
       setComputerHand(newHand)
       setBoneyard(newBoneyard)
+
+      // Check if game is locked (using the updated hands after computer drew)
+      if (checkLockedGame(newHand, playerHand, newBoneyard)) {
+        handleLockedGame()
+        return
+      }
+
       if (drawCount > 0) {
-        setMessage(`Computer drew ${drawCount} tile${drawCount > 1 ? 's' : ''}, passes`)
+        setMessage(`Computer drew ${drawCount} tile${drawCount > 1 ? 's' : ''}, passes. Your turn`)
       } else {
-        setMessage('Computer passes - no valid moves')
+        setMessage('Computer passes - no valid moves. Your turn')
       }
 
       setCurrentPlayer('player')
-      setMessage('Your turn')
     }, 1500)
 
     return () => clearTimeout(timer)
@@ -1171,32 +1297,71 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
               <div className="text-white text-3xl font-bold mb-4 text-center">
                 {gameWinner === 'player' ? '🏆 YOU WIN THE GAME! 🏆' : '💻 Computer Wins the Game'}
               </div>
+            ) : roundEndInfo.isLocked ? (
+              <div className="text-white text-2xl font-bold mb-4 text-center">
+                🔒 Game Locked!
+              </div>
             ) : (
               <div className="text-white text-2xl font-bold mb-4 text-center">
                 {roundEndInfo.winner === 'player' ? '🎉 You Dominoed!' : '💻 Computer Dominoed!'}
               </div>
             )}
 
-            <div className="text-gray-300 text-center mb-4">
-              {roundEndInfo.winner === 'player' ? "Computer's" : 'Your'} remaining tiles:
-            </div>
-
-            {/* Show loser's tiles */}
-            <div className="flex flex-wrap justify-center gap-2 mb-4">
-              {roundEndInfo.loserTiles.map((tile) => (
-                <div key={tile.id} className="transform scale-50">
-                  <DominoComponent domino={tile} />
+            {/* Locked game - show both hands */}
+            {roundEndInfo.isLocked ? (
+              <>
+                <div className="text-gray-300 text-center mb-2">Your tiles ({roundEndInfo.playerPips} pips):</div>
+                <div className="flex flex-wrap justify-center gap-2 mb-4">
+                  {roundEndInfo.playerTiles?.map((tile) => (
+                    <div key={tile.id} className="transform scale-50">
+                      <DominoComponent domino={tile} />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            <div className="text-gray-400 text-sm text-center mb-2">
-              Total pips: {roundEndInfo.loserTiles.reduce((sum, d) => sum + d.left + d.right, 0)}
-            </div>
+                <div className="text-gray-300 text-center mb-2">Computer's tiles ({roundEndInfo.computerPips} pips):</div>
+                <div className="flex flex-wrap justify-center gap-2 mb-4">
+                  {roundEndInfo.computerTiles?.map((tile) => (
+                    <div key={tile.id} className="transform scale-50">
+                      <DominoComponent domino={tile} />
+                    </div>
+                  ))}
+                </div>
 
-            <div className="text-yellow-400 text-xl font-bold text-center mb-4">
-              +{roundEndInfo.pointsAwarded} points to {roundEndInfo.winner === 'player' ? 'You' : 'Computer'}!
-            </div>
+                {roundEndInfo.winner === 'tie' ? (
+                  <div className="text-gray-400 text-lg text-center mb-4">
+                    Tie! No points awarded.
+                  </div>
+                ) : (
+                  <div className="text-yellow-400 text-xl font-bold text-center mb-4">
+                    +{roundEndInfo.pointsAwarded} points to {roundEndInfo.winner === 'player' ? 'You' : 'Computer'}!
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="text-gray-300 text-center mb-4">
+                  {roundEndInfo.winner === 'player' ? "Computer's" : 'Your'} remaining tiles:
+                </div>
+
+                {/* Show loser's tiles */}
+                <div className="flex flex-wrap justify-center gap-2 mb-4">
+                  {roundEndInfo.loserTiles.map((tile) => (
+                    <div key={tile.id} className="transform scale-50">
+                      <DominoComponent domino={tile} />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-gray-400 text-sm text-center mb-2">
+                  Total pips: {roundEndInfo.loserTiles.reduce((sum, d) => sum + d.left + d.right, 0)}
+                </div>
+
+                <div className="text-yellow-400 text-xl font-bold text-center mb-4">
+                  +{roundEndInfo.pointsAwarded} points to {roundEndInfo.winner === 'player' ? 'You' : 'Computer'}!
+                </div>
+              </>
+            )}
 
             {/* Final Scores for game win */}
             {gameWinner && (
