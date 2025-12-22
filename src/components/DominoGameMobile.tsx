@@ -381,33 +381,31 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     const playerPips = playerHand.reduce((sum, d) => sum + d.left + d.right, 0)
     const computerPips = computerHand.reduce((sum, d) => sum + d.left + d.right, 0)
 
+    // Round each player's pips to nearest 5 individually
+    const playerRounded = Math.round(playerPips / 5) * 5
+    const computerRounded = Math.round(computerPips / 5) * 5
+
     let winner: 'player' | 'computer' | 'tie'
     let pointsAwarded = 0
 
-    // In a locked game, winner gets the DIFFERENCE in pips, rounded to nearest 5
-    const pipDifference = Math.abs(playerPips - computerPips)
-    pointsAwarded = Math.round(pipDifference / 5) * 5
-
-    if (playerPips < computerPips) {
-      // Player wins - gets difference rounded to nearest 5
-      winner = 'player'
-      if (pointsAwarded > 0) {
-        const newScore = playerScore + pointsAwarded
-        setPlayerScore(newScore)
-        if (newScore >= WINNING_SCORE) setGameWinner('player')
-      }
-    } else if (computerPips < playerPips) {
-      // Computer wins - gets difference rounded to nearest 5
-      winner = 'computer'
-      if (pointsAwarded > 0) {
-        const newScore = computerScore + pointsAwarded
-        setComputerScore(newScore)
-        if (newScore >= WINNING_SCORE) setGameWinner('computer')
-      }
-    } else {
-      // Tie - no points awarded
+    if (playerRounded === computerRounded) {
+      // Equal after rounding = tie, no points awarded
       winner = 'tie'
       pointsAwarded = 0
+    } else if (playerRounded < computerRounded) {
+      // Player has fewer rounded pips - wins and gets computer's rounded pips
+      winner = 'player'
+      pointsAwarded = computerRounded
+      const newScore = playerScore + pointsAwarded
+      setPlayerScore(newScore)
+      if (newScore >= WINNING_SCORE) setGameWinner('player')
+    } else {
+      // Computer has fewer rounded pips - wins and gets player's rounded pips
+      winner = 'computer'
+      pointsAwarded = playerRounded
+      const newScore = computerScore + pointsAwarded
+      setComputerScore(newScore)
+      if (newScore >= WINNING_SCORE) setGameWinner('computer')
     }
 
     setRoundEndInfo({
@@ -1393,7 +1391,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
               </button>
             ) : (
               <button
-                onClick={() => startNewRound(roundEndInfo.winner)}
+                onClick={() => startNewRound(roundEndInfo.isLocked ? 'tie' : roundEndInfo.winner)}
                 className="w-full bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold text-lg"
               >
                 Continue to Next Round
