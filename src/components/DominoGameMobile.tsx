@@ -842,6 +842,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   // Computer AI
   useEffect(() => {
     if (currentPlayer !== 'computer') return
+    // Don't play if round has ended or game is over
+    if (roundEndInfo || gameWinner) return
 
     const timer = setTimeout(() => {
       // Try to play a domino
@@ -934,7 +936,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     }, 1500)
 
     return () => clearTimeout(timer)
-  }, [currentPlayer, computerHand, leftEnd, rightEnd, upEnd, downEnd, boneyard, firstSpinner, spinnerSides])
+  }, [currentPlayer, computerHand, leftEnd, rightEnd, upEnd, downEnd, boneyard, firstSpinner, spinnerSides, roundEndInfo, gameWinner])
 
   return (
     <div className="fixed inset-0" style={{ backgroundColor: '#2a802a' }}>
