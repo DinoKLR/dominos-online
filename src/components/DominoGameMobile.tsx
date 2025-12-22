@@ -44,6 +44,11 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   const [playerScore, setPlayerScore] = useState(0)
   const [computerScore, setComputerScore] = useState(0)
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 400 })
+  const [roundEndInfo, setRoundEndInfo] = useState<{
+    winner: 'player' | 'computer'
+    loserTiles: Domino[]
+    pointsAwarded: number
+  } | null>(null)
   const boardRef = useRef<HTMLDivElement>(null)
 
   // Calculate board bounds and scale factor
@@ -283,8 +288,33 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     }
   }
 
-  // Start a new round after someone wins (dominoes out)
+  // Handle end of round - calculate points and show overlay
+  const handleRoundEnd = (winner: 'player' | 'computer') => {
+    // Get the loser's remaining tiles
+    const loserTiles = winner === 'player' ? [...computerHand] : [...playerHand]
+
+    // Calculate total pips on loser's tiles
+    const totalPips = loserTiles.reduce((sum, d) => sum + d.left + d.right, 0)
+
+    // Round to nearest 5
+    const pointsAwarded = Math.round(totalPips / 5) * 5
+
+    // Award points to winner
+    if (winner === 'player') {
+      setPlayerScore(prev => prev + pointsAwarded)
+    } else {
+      setComputerScore(prev => prev + pointsAwarded)
+    }
+
+    // Show round end overlay
+    setRoundEndInfo({ winner, loserTiles, pointsAwarded })
+  }
+
+  // Start a new round after showing round end
   const startNewRound = (winner: 'player' | 'computer') => {
+    // Clear round end overlay
+    setRoundEndInfo(null)
+
     // Reset board state
     setUpEnd(null)
     setDownEnd(null)
@@ -692,8 +722,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     setPlayerHand(playerHand.filter(d => d.id !== domino.id))
 
     if (playerHand.length === 1) {
-      setMessage('You dominoed! Starting new round...')
-      setTimeout(() => startNewRound('player'), 2000)
+      setMessage('You dominoed!')
+      handleRoundEnd('player')
       return
     }
 
@@ -711,8 +741,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     setShowSideChoice(false)
 
     if (playerHand.length === 1) {
-      setMessage('You dominoed! Starting new round...')
-      setTimeout(() => startNewRound('player'), 2000)
+      setMessage('You dominoed!')
+      handleRoundEnd('player')
       return
     }
 
@@ -793,8 +823,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
           setComputerHand(computerHand.filter(d => d.id !== domino.id))
 
           if (computerHand.length === 1) {
-            setMessage('Computer dominoed! Starting new round...')
-            setTimeout(() => startNewRound('computer'), 2000)
+            setMessage('Computer dominoed!')
+            handleRoundEnd('computer')
             return
           }
 
@@ -840,8 +870,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
           setMessage(`Computer drew ${drawCount} tile${drawCount > 1 ? 's' : ''} and played`)
 
           if (newHand.length === 1) {
-            setMessage('Computer dominoed! Starting new round...')
-            setTimeout(() => startNewRound('computer'), 2000)
+            setMessage('Computer dominoed!')
+            handleRoundEnd('computer')
             return
           }
 
@@ -1086,6 +1116,45 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Round End Overlay */}
+      {roundEndInfo && (
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-40">
+          <div className="bg-slate-800 p-6 rounded-xl shadow-xl max-w-md mx-4">
+            <div className="text-white text-2xl font-bold mb-4 text-center">
+              {roundEndInfo.winner === 'player' ? '🎉 You Dominoed!' : '💻 Computer Dominoed!'}
+            </div>
+
+            <div className="text-gray-300 text-center mb-4">
+              {roundEndInfo.winner === 'player' ? "Computer's" : 'Your'} remaining tiles:
+            </div>
+
+            {/* Show loser's tiles */}
+            <div className="flex flex-wrap justify-center gap-2 mb-4">
+              {roundEndInfo.loserTiles.map((tile) => (
+                <div key={tile.id} className="transform scale-50">
+                  <DominoComponent domino={tile} />
+                </div>
+              ))}
+            </div>
+
+            <div className="text-gray-400 text-sm text-center mb-2">
+              Total pips: {roundEndInfo.loserTiles.reduce((sum, d) => sum + d.left + d.right, 0)}
+            </div>
+
+            <div className="text-yellow-400 text-xl font-bold text-center mb-4">
+              +{roundEndInfo.pointsAwarded} points to {roundEndInfo.winner === 'player' ? 'You' : 'Computer'}!
+            </div>
+
+            <button
+              onClick={() => startNewRound(roundEndInfo.winner)}
+              className="w-full bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold text-lg"
+            >
+              Continue to Next Round
+            </button>
           </div>
         </div>
       )}
