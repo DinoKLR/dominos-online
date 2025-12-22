@@ -601,27 +601,23 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     }
 
     // Flip logic - flip so matching end touches the chain
-    // For horizontal domino: LEFT visual shows domino.left (no flip) or domino.right (flipped)
-    //                        RIGHT visual shows domino.right (no flip) or domino.left (flipped)
     let newLeftEnd = leftEnd
     let newRightEnd = rightEnd
 
     if (side === 'left') {
-      // Playing to the LEFT - RIGHT visual side must match leftEnd
       if (domino.right === leftEnd) {
-        placedDomino.isFlipped = false  // Right visual = domino.right (matches)
+        placedDomino.isFlipped = true  // Flip so right side faces left (touches chain)
         newLeftEnd = domino.left
       } else if (domino.left === leftEnd) {
-        placedDomino.isFlipped = true   // Right visual = domino.left (matches)
+        placedDomino.isFlipped = false  // Left side already faces left
         newLeftEnd = domino.right
       }
     } else {
-      // Playing to the RIGHT - LEFT visual side must match rightEnd
       if (domino.left === rightEnd) {
-        placedDomino.isFlipped = false  // Left visual = domino.left (matches)
+        placedDomino.isFlipped = true  // Flip so left side faces right (touches chain)
         newRightEnd = domino.right
       } else if (domino.right === rightEnd) {
-        placedDomino.isFlipped = true   // Left visual = domino.right (matches)
+        placedDomino.isFlipped = false  // Right side already faces right
         newRightEnd = domino.left
       }
     }
