@@ -267,7 +267,20 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
 
     setBoneyard(boneyardTiles)
     setCurrentPlayer(starter === 'player' ? 'computer' : 'player')
-    setMessage(starter === 'player' ? "Computer's turn" : 'Your turn')
+
+    // Score the first domino if it's a scoring value
+    const firstScore = startDomino.left + startDomino.right
+    if (firstScore > 0 && firstScore % 5 === 0) {
+      if (starter === 'player') {
+        setPlayerScore(firstScore)
+        setMessage(`Computer's turn (You scored ${firstScore}!)`)
+      } else {
+        setComputerScore(firstScore)
+        setMessage(`Your turn (CPU scored ${firstScore})`)
+      }
+    } else {
+      setMessage(starter === 'player' ? "Computer's turn" : 'Your turn')
+    }
   }
 
 
