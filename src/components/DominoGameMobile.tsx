@@ -301,7 +301,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   }
 
   // Handle end of round - calculate points and show overlay
-  const handleRoundEnd = (winner: 'player' | 'computer') => {
+  // playScore = points earned from the final domino play (to avoid React state race condition)
+  const handleRoundEnd = (winner: 'player' | 'computer', playScore: number = 0) => {
     // Get the loser's remaining tiles
     const loserTiles = winner === 'player' ? [...computerHand] : [...playerHand]
 
@@ -311,11 +312,15 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     // Round to nearest 5
     const pointsAwarded = Math.round(totalPips / 5) * 5
 
-    // Calculate new scores to check for game winner
-    const newPlayerScore = winner === 'player' ? playerScore + pointsAwarded : playerScore
-    const newComputerScore = winner === 'computer' ? computerScore + pointsAwarded : computerScore
+    // Calculate new scores - include playScore from the final domino play
+    // This avoids React state race condition where setPlayerScore from awardScore
+    // hasn't taken effect yet when we read playerScore here
+    const basePlayerScore = winner === 'player' ? playerScore + playScore : playerScore
+    const baseComputerScore = winner === 'computer' ? computerScore + playScore : computerScore
+    const newPlayerScore = winner === 'player' ? basePlayerScore + pointsAwarded : basePlayerScore
+    const newComputerScore = winner === 'computer' ? baseComputerScore + pointsAwarded : baseComputerScore
 
-    // Award points to winner
+    // Award points to winner (this combines play score + round-end points)
     if (winner === 'player') {
       setPlayerScore(newPlayerScore)
     } else {
@@ -459,7 +464,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     return null
   }
 
-  const playDomino = (domino: Domino, side: 'left' | 'right' | 'up' | 'down', scorer: 'player' | 'computer') => {
+  const playDomino = (domino: Domino, side: 'left' | 'right' | 'up' | 'down', scorer: 'player' | 'computer'): number => {
     let placedDomino = { ...domino }
 
     // Handle spinner placement (up/down) - first domino off spinner
@@ -509,7 +514,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       const newDownEnd = side === 'down' ? newEnd : downEnd
 
       // Award score with new values
-      awardScore(scorer, newBoard, leftEnd, rightEnd, newUpEnd, newDownEnd, newSpinnerSides, firstSpinner)
+      const score = awardScore(scorer, newBoard, leftEnd, rightEnd, newUpEnd, newDownEnd, newSpinnerSides, firstSpinner)
 
       // Update state
       if (side === 'up') {
@@ -519,7 +524,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       }
       setSpinnerSides(newSpinnerSides)
       setBoard(newBoard)
-      return
+      return score
     }
 
     // Handle UP chain continuation
@@ -558,12 +563,12 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       const newBoard = [...board, newPlaced]
 
       // Award score with new values
-      awardScore(scorer, newBoard, leftEnd, rightEnd, newEnd, downEnd, spinnerSides, firstSpinner)
+      const score = awardScore(scorer, newBoard, leftEnd, rightEnd, newEnd, downEnd, spinnerSides, firstSpinner)
 
       // Update state
       setUpEnd(newEnd)
       setBoard(newBoard)
-      return
+      return score
     }
 
     // Handle DOWN chain continuation
@@ -602,12 +607,12 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       const newBoard = [...board, newPlaced]
 
       // Award score with new values
-      awardScore(scorer, newBoard, leftEnd, rightEnd, upEnd, newEnd, spinnerSides, firstSpinner)
+      const score = awardScore(scorer, newBoard, leftEnd, rightEnd, upEnd, newEnd, spinnerSides, firstSpinner)
 
       // Update state
       setDownEnd(newEnd)
       setBoard(newBoard)
-      return
+      return score
     }
 
     // Flip logic - flip so matching end touches the chain
@@ -696,7 +701,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     }
 
     // Award score with new values
-    awardScore(scorer, newBoard, newLeftEnd, newRightEnd, upEnd, downEnd, newSpinnerSides, newSpinner)
+    const score = awardScore(scorer, newBoard, newLeftEnd, newRightEnd, upEnd, downEnd, newSpinnerSides, newSpinner)
 
     // Update state
     if (side === 'left') {
@@ -711,6 +716,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     if (newSpinnerSides !== spinnerSides) {
       setSpinnerSides(newSpinnerSides)
     }
+    return score
   }
 
   const handleDominoClick = (domino: Domino) => {
@@ -750,13 +756,13 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     }
 
     // Single option - play directly
-    playDomino(domino, playable as 'left' | 'right' | 'up' | 'down', 'player')
+    const playScore = playDomino(domino, playable as 'left' | 'right' | 'up' | 'down', 'player')
 
     setPlayerHand(playerHand.filter(d => d.id !== domino.id))
 
     if (playerHand.length === 1) {
       setMessage('You dominoed!')
-      handleRoundEnd('player')
+      handleRoundEnd('player', playScore)
       return
     }
 
@@ -767,7 +773,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
   const handleSideChoice = (side: 'left' | 'right' | 'up' | 'down') => {
     if (!selectedDomino) return
 
-    playDomino(selectedDomino, side, 'player')
+    const playScore = playDomino(selectedDomino, side, 'player')
     setPlayerHand(playerHand.filter(d => d.id !== selectedDomino.id))
 
     setSelectedDomino(null)
@@ -775,7 +781,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
 
     if (playerHand.length === 1) {
       setMessage('You dominoed!')
-      handleRoundEnd('player')
+      handleRoundEnd('player', playScore)
       return
     }
 
@@ -852,12 +858,12 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
             side = playable
           }
 
-          playDomino(domino, side, 'computer')
+          const playScore = playDomino(domino, side, 'computer')
           setComputerHand(computerHand.filter(d => d.id !== domino.id))
 
           if (computerHand.length === 1) {
             setMessage('Computer dominoed!')
-            handleRoundEnd('computer')
+            handleRoundEnd('computer', playScore)
             return
           }
 
@@ -899,12 +905,12 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
 
           setComputerHand(newHand.filter(d => d.id !== drawn.id))
           setBoneyard(newBoneyard)
-          playDomino(drawn, side, 'computer')
+          const playScore = playDomino(drawn, side, 'computer')
           setMessage(`Computer drew ${drawCount} tile${drawCount > 1 ? 's' : ''} and played`)
 
           if (newHand.length === 1) {
             setMessage('Computer dominoed!')
-            handleRoundEnd('computer')
+            handleRoundEnd('computer', playScore)
             return
           }
 
