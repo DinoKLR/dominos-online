@@ -442,7 +442,7 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     let starter: 'player' | 'computer' = winner === 'tie' ? 'player' : winner
 
     if (winner === 'tie') {
-      // Tie - find highest double between both players (like starting a new game)
+      // Locked game / new game - find highest double between both players
       for (let i = 6; i >= 0; i--) {
         const playerDouble = playerTiles.find(d => d.isDouble && d.left === i)
         if (playerDouble) {
@@ -457,28 +457,28 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
           break
         }
       }
-      // If no doubles, player goes first with their first tile
+      // If no doubles, find highest domino by pip count (5-6=11, 4-6=10, etc.)
       if (!startDomino) {
-        startDomino = playerTiles[0]
-        starter = 'player'
+        const allTiles = [
+          ...playerTiles.map(d => ({ ...d, owner: 'player' as const })),
+          ...computerTiles.map(d => ({ ...d, owner: 'computer' as const }))
+        ]
+        // Sort by total pips descending, then by higher pip value
+        allTiles.sort((a, b) => {
+          const aPips = a.left + a.right
+          const bPips = b.left + b.right
+          if (bPips !== aPips) return bPips - aPips
+          return Math.max(b.left, b.right) - Math.max(a.left, a.right)
+        })
+        const highest = allTiles[0]
+        startDomino = { id: highest.id, left: highest.left, right: highest.right, isDouble: highest.isDouble }
+        starter = highest.owner
       }
     } else {
-      // Winner plays first - find their highest double, or any domino
+      // Regular win (someone dominoed) - winner plays first with any tile they want
+      // No double requirement - just play their first tile
       const winnerTiles = winner === 'player' ? playerTiles : computerTiles
-
-      // First try to find highest double in winner's hand
-      for (let i = 6; i >= 0; i--) {
-        const winnerDouble = winnerTiles.find(d => d.isDouble && d.left === i)
-        if (winnerDouble) {
-          startDomino = winnerDouble
-          break
-        }
-      }
-
-      // If winner has no double, they play their first tile
-      if (!startDomino) {
-        startDomino = winnerTiles[0]
-      }
+      startDomino = winnerTiles[0]
     }
 
     // Place first domino
