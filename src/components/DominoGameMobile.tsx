@@ -439,8 +439,9 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     const matchesUp = upEnd !== null && (domino.left === upEnd || domino.right === upEnd)
     const matchesDown = downEnd !== null && (domino.left === downEnd || domino.right === downEnd)
 
-    // Check if we can play on the spinner (first double) - only if UP/DOWN not yet started
-    if (firstSpinner && spinnerSides.size >= 2) {
+    // Check if we can play on the spinner (first double) - only after BOTH left and right are filled
+    // Must have exactly 'left' AND 'right' in spinnerSides before UP/DOWN become available
+    if (firstSpinner && spinnerSides.has('left') && spinnerSides.has('right')) {
       const spinnerValue = firstSpinner.domino.left
       const matchesSpinner = domino.left === spinnerValue || domino.right === spinnerValue
 
