@@ -260,13 +260,18 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     }
 
     setBoard([firstPlaced])
-    setLeftEnd(startDomino.left)
-    setRightEnd(startDomino.right)
 
-    // If the starting domino is a double, set it as the first spinner
+    // For horizontal (non-double) dominoes, rotation=90 swaps visual sides:
+    // Visual LEFT = domino.right, Visual RIGHT = domino.left
     if (startDomino.isDouble) {
+      setLeftEnd(startDomino.left)
+      setRightEnd(startDomino.right)
       setFirstSpinner(firstPlaced)
       setSpinnerSides(new Set())
+    } else {
+      // Non-double is horizontal - swap the ends to match visual layout
+      setLeftEnd(startDomino.right)
+      setRightEnd(startDomino.left)
     }
 
     if (starter === 'player') {
@@ -375,13 +380,18 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     }
 
     setBoard([firstPlaced])
-    setLeftEnd(startDomino.left)
-    setRightEnd(startDomino.right)
 
-    // If the starting domino is a double, set it as the first spinner
+    // For horizontal (non-double) dominoes, rotation=90 swaps visual sides:
+    // Visual LEFT = domino.right, Visual RIGHT = domino.left
     if (startDomino.isDouble) {
+      setLeftEnd(startDomino.left)
+      setRightEnd(startDomino.right)
       setFirstSpinner(firstPlaced)
       setSpinnerSides(new Set())
+    } else {
+      // Non-double is horizontal - swap the ends to match visual layout
+      setLeftEnd(startDomino.right)
+      setRightEnd(startDomino.left)
     }
 
     if (winner === 'player') {
