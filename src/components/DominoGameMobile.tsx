@@ -49,7 +49,9 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     loserTiles: Domino[]
     pointsAwarded: number
   } | null>(null)
+  const [gameWinner, setGameWinner] = useState<'player' | 'computer' | null>(null)
   const boardRef = useRef<HTMLDivElement>(null)
+  const WINNING_SCORE = 100
 
   // Calculate board bounds and scale factor
   const boardTransform = useMemo(() => {
@@ -175,11 +177,16 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
 
     // Score if divisible by 5 and greater than 0
     if (sum > 0 && sum % 5 === 0) {
+      const newScore = (scorer === 'player' ? playerScore : computerScore) + sum
       if (scorer === 'player') {
-        setPlayerScore(prev => prev + sum)
+        setPlayerScore(newScore)
         setMessage(`Your turn +${sum} points!`)
       } else {
-        setComputerScore(prev => prev + sum)
+        setComputerScore(newScore)
+      }
+      // Check for game win from play score
+      if (newScore >= WINNING_SCORE) {
+        setGameWinner(scorer)
       }
       return sum
     }
@@ -299,11 +306,22 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     // Round to nearest 5
     const pointsAwarded = Math.round(totalPips / 5) * 5
 
+    // Calculate new scores to check for game winner
+    const newPlayerScore = winner === 'player' ? playerScore + pointsAwarded : playerScore
+    const newComputerScore = winner === 'computer' ? computerScore + pointsAwarded : computerScore
+
     // Award points to winner
     if (winner === 'player') {
-      setPlayerScore(prev => prev + pointsAwarded)
+      setPlayerScore(newPlayerScore)
     } else {
-      setComputerScore(prev => prev + pointsAwarded)
+      setComputerScore(newComputerScore)
+    }
+
+    // Check if someone won the game
+    if (newPlayerScore >= WINNING_SCORE) {
+      setGameWinner('player')
+    } else if (newComputerScore >= WINNING_SCORE) {
+      setGameWinner('computer')
     }
 
     // Show round end overlay
@@ -381,12 +399,17 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     // Score the first domino if it's a scoring value
     const firstScore = startDomino.left + startDomino.right
     if (firstScore > 0 && firstScore % 5 === 0) {
+      const newScore = (winner === 'player' ? playerScore : computerScore) + firstScore
       if (winner === 'player') {
-        setPlayerScore(prev => prev + firstScore)
+        setPlayerScore(newScore)
         setMessage(`New round! You scored ${firstScore}. Computer's turn`)
       } else {
-        setComputerScore(prev => prev + firstScore)
+        setComputerScore(newScore)
         setMessage(`New round! CPU scored ${firstScore}. Your turn`)
+      }
+      // Check for game win from first domino score
+      if (newScore >= WINNING_SCORE) {
+        setGameWinner(winner)
       }
     } else {
       setMessage(winner === 'player' ? "New round! Computer's turn" : "New round! Your turn")
@@ -1124,9 +1147,16 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
       {roundEndInfo && (
         <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-40">
           <div className="bg-slate-800 p-6 rounded-xl shadow-xl max-w-md mx-4">
-            <div className="text-white text-2xl font-bold mb-4 text-center">
-              {roundEndInfo.winner === 'player' ? '🎉 You Dominoed!' : '💻 Computer Dominoed!'}
-            </div>
+            {/* Game Over Title */}
+            {gameWinner ? (
+              <div className="text-white text-3xl font-bold mb-4 text-center">
+                {gameWinner === 'player' ? '🏆 YOU WIN THE GAME! 🏆' : '💻 Computer Wins the Game'}
+              </div>
+            ) : (
+              <div className="text-white text-2xl font-bold mb-4 text-center">
+                {roundEndInfo.winner === 'player' ? '🎉 You Dominoed!' : '💻 Computer Dominoed!'}
+              </div>
+            )}
 
             <div className="text-gray-300 text-center mb-4">
               {roundEndInfo.winner === 'player' ? "Computer's" : 'Your'} remaining tiles:
@@ -1149,12 +1179,36 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
               +{roundEndInfo.pointsAwarded} points to {roundEndInfo.winner === 'player' ? 'You' : 'Computer'}!
             </div>
 
-            <button
-              onClick={() => startNewRound(roundEndInfo.winner)}
-              className="w-full bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold text-lg"
-            >
-              Continue to Next Round
-            </button>
+            {/* Final Scores for game win */}
+            {gameWinner && (
+              <div className="text-center mb-4 p-3 bg-slate-700 rounded-lg">
+                <div className="text-lg text-white font-bold">Final Score</div>
+                <div className="text-green-400">You: {playerScore}</div>
+                <div className="text-red-400">Computer: {computerScore}</div>
+              </div>
+            )}
+
+            {gameWinner ? (
+              <button
+                onClick={() => {
+                  setGameWinner(null)
+                  setRoundEndInfo(null)
+                  setPlayerScore(0)
+                  setComputerScore(0)
+                  startGame()
+                }}
+                className="w-full bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-lg font-bold text-lg"
+              >
+                🎮 Play Again
+              </button>
+            ) : (
+              <button
+                onClick={() => startNewRound(roundEndInfo.winner)}
+                className="w-full bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold text-lg"
+              >
+                Continue to Next Round
+              </button>
+            )}
           </div>
         </div>
       )}
