@@ -1397,6 +1397,36 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
         </div>
       )}
 
+      {/* Game Win Overlay - shows immediately when someone reaches 100 (even mid-round) */}
+      {gameWinner && !roundEndInfo && (
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-40">
+          <div className="bg-slate-800 p-6 rounded-xl shadow-xl max-w-md mx-4">
+            <div className="text-white text-3xl font-bold mb-4 text-center">
+              {gameWinner === 'player' ? '🏆 YOU WIN THE GAME! 🏆' : '💻 Computer Wins the Game'}
+            </div>
+
+            <div className="text-center mb-4 p-3 bg-slate-700 rounded-lg">
+              <div className="text-lg text-white font-bold">Final Score</div>
+              <div className="text-green-400">You: {playerScore}</div>
+              <div className="text-red-400">Computer: {computerScore}</div>
+            </div>
+
+            <button
+              onClick={() => {
+                setGameWinner(null)
+                setRoundEndInfo(null)
+                setPlayerScore(0)
+                setComputerScore(0)
+                startGame()
+              }}
+              className="w-full bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-lg font-bold text-lg"
+            >
+              🎮 Play Again
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Bottom Footer with Player Hand */}
       <div className="absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-sm px-4 py-2 z-20">
         {currentPlayer === 'player' && (
