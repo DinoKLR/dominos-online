@@ -283,6 +283,85 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     }
   }
 
+  // Start a new round after someone wins (dominoes out)
+  const startNewRound = (winner: 'player' | 'computer') => {
+    // Reset board state
+    setUpEnd(null)
+    setDownEnd(null)
+    setFirstSpinner(null)
+    setSpinnerSides(new Set())
+
+    const dominoes = createDominoes()
+    const shuffled = [...dominoes].sort(() => Math.random() - 0.5)
+
+    const playerTiles = shuffled.slice(0, 7)
+    const computerTiles = shuffled.slice(7, 14)
+    const boneyardTiles = shuffled.slice(14)
+
+    // Winner plays first - find their highest double, or any domino
+    const winnerTiles = winner === 'player' ? playerTiles : computerTiles
+    const loserTiles = winner === 'player' ? computerTiles : playerTiles
+
+    let startDomino: Domino | null = null
+
+    // First try to find highest double in winner's hand
+    for (let i = 6; i >= 0; i--) {
+      const winnerDouble = winnerTiles.find(d => d.isDouble && d.left === i)
+      if (winnerDouble) {
+        startDomino = winnerDouble
+        break
+      }
+    }
+
+    // If winner has no double, they play their first tile
+    if (!startDomino) {
+      startDomino = winnerTiles[0]
+    }
+
+    // Place first domino
+    const firstPlaced: PlacedDomino = {
+      domino: startDomino,
+      x: 848,
+      y: 360,
+      rotation: startDomino.isDouble ? 0 : 90
+    }
+
+    setBoard([firstPlaced])
+    setLeftEnd(startDomino.left)
+    setRightEnd(startDomino.right)
+
+    // If the starting domino is a double, set it as the first spinner
+    if (startDomino.isDouble) {
+      setFirstSpinner(firstPlaced)
+      setSpinnerSides(new Set())
+    }
+
+    if (winner === 'player') {
+      setPlayerHand(playerTiles.filter(d => d.id !== startDomino!.id))
+      setComputerHand(computerTiles)
+    } else {
+      setPlayerHand(playerTiles)
+      setComputerHand(computerTiles.filter(d => d.id !== startDomino!.id))
+    }
+
+    setBoneyard(boneyardTiles)
+    // After winner plays first domino, it's the other player's turn
+    setCurrentPlayer(winner === 'player' ? 'computer' : 'player')
+
+    // Score the first domino if it's a scoring value
+    const firstScore = startDomino.left + startDomino.right
+    if (firstScore > 0 && firstScore % 5 === 0) {
+      if (winner === 'player') {
+        setPlayerScore(prev => prev + firstScore)
+        setMessage(`New round! You scored ${firstScore}. Computer's turn`)
+      } else {
+        setComputerScore(prev => prev + firstScore)
+        setMessage(`New round! CPU scored ${firstScore}. Your turn`)
+      }
+    } else {
+      setMessage(winner === 'player' ? "New round! Computer's turn" : "New round! Your turn")
+    }
+  }
 
   const canPlay = (domino: Domino): 'left' | 'right' | 'both' | 'up' | 'down' | 'spinner' | null => {
     const matchesLeft = domino.left === leftEnd || domino.right === leftEnd
@@ -613,8 +692,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     setPlayerHand(playerHand.filter(d => d.id !== domino.id))
 
     if (playerHand.length === 1) {
-      setMessage('You won!')
-      setTimeout(() => onGameEnd('player'), 1500)
+      setMessage('You dominoed! Starting new round...')
+      setTimeout(() => startNewRound('player'), 2000)
       return
     }
 
@@ -632,8 +711,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     setShowSideChoice(false)
 
     if (playerHand.length === 1) {
-      setMessage('You won!')
-      setTimeout(() => onGameEnd('player'), 1500)
+      setMessage('You dominoed! Starting new round...')
+      setTimeout(() => startNewRound('player'), 2000)
       return
     }
 
@@ -714,8 +793,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
           setComputerHand(computerHand.filter(d => d.id !== domino.id))
 
           if (computerHand.length === 1) {
-            setMessage('Computer won!')
-            setTimeout(() => onGameEnd('computer'), 1500)
+            setMessage('Computer dominoed! Starting new round...')
+            setTimeout(() => startNewRound('computer'), 2000)
             return
           }
 
@@ -761,8 +840,8 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
           setMessage(`Computer drew ${drawCount} tile${drawCount > 1 ? 's' : ''} and played`)
 
           if (newHand.length === 1) {
-            setMessage('Computer won!')
-            setTimeout(() => onGameEnd('computer'), 1500)
+            setMessage('Computer dominoed! Starting new round...')
+            setTimeout(() => startNewRound('computer'), 2000)
             return
           }
 
