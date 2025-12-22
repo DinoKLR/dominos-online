@@ -384,20 +384,26 @@ const DominoGameMobile: React.FC<DominoGameMobileProps> = ({ onGameEnd, onBackTo
     let winner: 'player' | 'computer' | 'tie'
     let pointsAwarded = 0
 
+    // In a locked game, winner gets the DIFFERENCE in pips, rounded to nearest 5
+    const pipDifference = Math.abs(playerPips - computerPips)
+    pointsAwarded = Math.round(pipDifference / 5) * 5
+
     if (playerPips < computerPips) {
-      // Player wins - gets computer's pips rounded to nearest 5
+      // Player wins - gets difference rounded to nearest 5
       winner = 'player'
-      pointsAwarded = Math.round(computerPips / 5) * 5
-      const newScore = playerScore + pointsAwarded
-      setPlayerScore(newScore)
-      if (newScore >= WINNING_SCORE) setGameWinner('player')
+      if (pointsAwarded > 0) {
+        const newScore = playerScore + pointsAwarded
+        setPlayerScore(newScore)
+        if (newScore >= WINNING_SCORE) setGameWinner('player')
+      }
     } else if (computerPips < playerPips) {
-      // Computer wins - gets player's pips rounded to nearest 5
+      // Computer wins - gets difference rounded to nearest 5
       winner = 'computer'
-      pointsAwarded = Math.round(playerPips / 5) * 5
-      const newScore = computerScore + pointsAwarded
-      setComputerScore(newScore)
-      if (newScore >= WINNING_SCORE) setGameWinner('computer')
+      if (pointsAwarded > 0) {
+        const newScore = computerScore + pointsAwarded
+        setComputerScore(newScore)
+        if (newScore >= WINNING_SCORE) setGameWinner('computer')
+      }
     } else {
       // Tie - no points awarded
       winner = 'tie'
